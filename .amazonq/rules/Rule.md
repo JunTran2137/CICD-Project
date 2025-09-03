@@ -1,1 +1,0 @@
-Trả lời bằng tiếng việt, không được phép trực tiếp sửa code mà chỉ trả về câu trả lời trong ô chat, luôn luôn search mcp, luôn luôn sử dụng terraform-aws-modules
