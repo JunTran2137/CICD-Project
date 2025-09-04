@@ -8,6 +8,19 @@ on:
         type: string
         required: true
         default: './infra'
+
+      environment:
+        description: 'Deployment environment'
+        type: string
+        required: true
+        default: 'deveplopment'
+
+      aws-region: 
+        description: 'AWS Region'
+        type: string
+        required: true
+        default: 'us-east-1'
+
     secrets:
       AWS_ACCESS_KEY_ID:
         description: 'AWS Access Key ID'
@@ -15,20 +28,20 @@ on:
       AWS_SECRET_ACCESS_KEY:
         description: 'AWS Secret Access Key'
         required: true
+
     outputs:
       ecr_repository:
         description: 'ECR Repository Name'
-        value: ${{  }}
+        value: ${{ jobs.terraform.outputs.ecr-repository }}
       ecs_cluster:
         description: 'ECS Cluster Name'
-        value: ${{ steps.apply.outputs.ecs_cluster }}
+        value: ${{ jobs.terraform.outputs.ecs-cluster }}
       ecs_service:
         description: 'ECS Service Name'
-        value: ${{ steps.apply.outputs.ecs_service }}
+        value: ${{ jobs.terraform.outputs.ecs-service }}
       task_definition:
         description: 'Task Definition Name'
-        value: ${{ steps.apply.outputs.task_definition }}
-
+        value: ${{ jobs.terraform.outputs.task-definition }}
 
 permissions:
   contents: read
@@ -37,14 +50,12 @@ jobs:
   terraform:
     name: 'Terraform'
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ inputs.environment }}
     
     defaults:
       run:
         shell: bash
-        working-directory: ${{ vars.working-directory }}
-      
-  
+        working-directory: ${{ inputs.working-directory }}
 
     steps:
     - name: Checkout
@@ -55,7 +66,7 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+        aws-region: ${{ inputs.aws-region }}
 
     - name: Terraform Init
       run: terraform init
@@ -71,7 +82,13 @@ jobs:
       if: github.ref == 'refs/heads/"main"' && github.event_name == 'push'
       run: |
         terraform apply -auto-approve -input=false
-        echo "ecr_repository=$(terraform output -raw ecr_repository_name)" >> $GITHUB_OUTPUT
-        echo "ecs_cluster=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
-        echo "ecs_service=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
-        echo "task_definition=$(terraform output -raw task_definition_name)" >> $GITHUB_OUTPUT
+        echo "ecr-repository=$(terraform output -raw ecr_repository_name)" >> $GITHUB_OUTPUT
+        echo "ecs-cluster=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
+        echo "ecs-service=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
+        echo "task-definition=$(terraform output -raw task_definition_name)" >> $GITHUB_OUTPUT
+    
+    outputs:
+      ecr-repository: ${{ steps.apply.outputs.ecr-repository }}
+      ecs-cluster: ${{ steps.apply.outputs.ecs-cluster }}
+      ecs-service: ${{ steps.apply.outputs.ecs-service }}
+      task-definition: ${{ steps.apply.outputs.task-definition }}
