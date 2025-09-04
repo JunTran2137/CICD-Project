@@ -1,9 +1,34 @@
 name: 'Terraform'
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
+  workflow_call: 
+    inputs:
+      working-directory:
+        description: 'Terraform working directory'
+        type: string
+        required: true
+        default: './infra'
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        description: 'AWS Access Key ID'
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        description: 'AWS Secret Access Key'
+        required: true
+    outputs:
+      ecr_repository:
+        description: 'ECR Repository Name'
+        value: ${{  }}
+      ecs_cluster:
+        description: 'ECS Cluster Name'
+        value: ${{ steps.apply.outputs.ecs_cluster }}
+      ecs_service:
+        description: 'ECS Service Name'
+        value: ${{ steps.apply.outputs.ecs_service }}
+      task_definition:
+        description: 'Task Definition Name'
+        value: ${{ steps.apply.outputs.task_definition }}
+
 
 permissions:
   contents: read
@@ -17,15 +42,20 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: ${{ vars.working-directory }}
+      
+  
 
     steps:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v1
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
       with:
-        cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
 
     - name: Terraform Init
       run: terraform init
@@ -37,5 +67,11 @@ jobs:
       run: terraform plan -input=false
 
     - name: Terraform Apply
+      id: apply
       if: github.ref == 'refs/heads/"main"' && github.event_name == 'push'
-      run: terraform apply -auto-approve -input=false
+      run: |
+        terraform apply -auto-approve -input=false
+        echo "ecr_repository=$(terraform output -raw ecr_repository_name)" >> $GITHUB_OUTPUT
+        echo "ecs_cluster=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
+        echo "ecs_service=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
+        echo "task_definition=$(terraform output -raw task_definition_name)" >> $GITHUB_OUTPUT
