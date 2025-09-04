@@ -50,8 +50,8 @@ module "ecs" {
       # network_mode = "awsvpc"
 
       # Task size
-      cpu    = 1024
-      memory = 3072		
+      cpu    = var.container_cpu * 2
+      memory = var.container_memory * 3		
 
       # Task roles
       tasks_iam_role_name = "${local.name}-frontend"
@@ -70,8 +70,8 @@ module "ecs" {
       container_definitions = {
         container-1 = {
           # Container details
-					name 		  = local.container_name
-					image     = "public.ecr.aws/aws-containers/ecsdemo-frontend:776fd50"
+					name 		  = var.container_name
+					image     = var.container_image
 					essential = true
 
           # Private registry
@@ -92,9 +92,9 @@ module "ecs" {
 					readonlyRootFilesystem = false
 
           # Resource allocation limits
-					cpu       = 512
-          memory    = 1024
-					memoryReservation = 512
+					cpu       = var.container_cpu
+          memory    = var.container_memory
+					memoryReservation = var.container_memory_reservation
 
           # Environment variables
           environment = [
@@ -218,7 +218,7 @@ module "ecs" {
 
 			# Deployment configuration
 			scheduling_strategy = "REPLICA"
-			desired_count      = 1
+			desired_count      = var.service_desired_count
 			availability_zone_rebalancing = "ENABLED"
 			health_check_grace_period_seconds = 0
 
@@ -304,8 +304,8 @@ module "ecs" {
       
       # Service auto scaling
       enable_autoscaling       = true
-      autoscaling_min_capacity = 1
-      autoscaling_max_capacity = 10
+      autoscaling_min_capacity = var.autoscaling_min_capacity
+      autoscaling_max_capacity = var.autoscaling_max_capacity
       autoscaling_policies = {
         cpu_target_tracking = {
           policy_type = "TargetTrackingScaling"
@@ -314,7 +314,7 @@ module "ecs" {
             predefined_metric_specification = {
               predefined_metric_type = "ECSServiceAverageCPUUtilization"
             }
-            target_value       = 70.0
+            target_value       = var.autoscaling_cpu_target
             scale_out_cooldown = 300
             scale_in_cooldown  = 300
             disable_scale_in   = false
@@ -444,14 +444,14 @@ module "db" {
   identifier = local.name
 
   
-  instance_class           = "db.t4g.large"
+  instance_class           = var.db_instance_class
 
-  allocated_storage     = 20
-  max_allocated_storage = 100
+  allocated_storage     = var.db_allocated_storage
+  max_allocated_storage = var.db_max_allocated_storage
 
-  db_name  = "completePostgresql"
-  username = "complete_postgresql"
-  port     = 5432
+  db_name  = var.db_name
+  username = var.db_username
+  port     = var.db_port
 
   manage_master_user_password_rotation              = true
   master_user_password_rotate_immediately           = false
