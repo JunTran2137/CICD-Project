@@ -1,57 +1,40 @@
 name: Deploy to Amazon ECS
+description: 'Deploy a container to Amazon ECS service'
 
-on:
-  workflow_call:
-    inputs:
-      aws-region:
-        description: "AWS region (e.g. us-west-1)"
-        type: 
-        required: true
-      ecr-repository:
-        description: "Amazon ECR repository name"
-        type: string
-        required: true
-      ecs-service:
-        description: "Amazon ECS service name" 
-        type: string
-        required: true
-      ecs-cluster:
-        description: "Amazon ECS cluster name"
-        type: string
-        required: true
-      ecs-task-definition:
-        description: "Path to Amazon ECS task definition file"
-        type: string
-        required: true
-      container-name:
-        description: "Name of the container in task definition"
-        type: string
-        required: true
+inputs:
+  aws-region:
+    description: "AWS region (e.g. us-west-1)"
+    required: true
+  ecr-repository:
+    description: "Amazon ECR repository name"
+    required: true
+  ecs-service:
+    description: "Amazon ECS service name"
+    required: true
+  ecs-cluster:
+    description: "Amazon ECS cluster name"
+    required: true
+  ecs-task-definition:
+    description: "Path to Amazon ECS task definition file"
+    required: true
+  container-name:
+    description: "Name of the container in task definition"
+    required: true
+  aws-access-key-id:
+    description: "AWS Access Key ID"
+    required: true
+  aws-secret-access-key:
+    description: "AWS Secret Access Key"
+    required: true
 
-    secrets:
-      AWS_ACCESS_KEY_ID:
-        required: true
-      AWS_SECRET_ACCESS_KEY:
-        required: true
-
-permissions:
-  contents: read
-
-jobs:
-  deploy:
-    name: Deploy
-    runs-on: ubuntu-latest
-    environment: production
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
+runs:
+  using: "composite"
+  steps:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-access-key-id: ${{ inputs.aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
         aws-region: ${{ inputs.aws-region }}
 
     - name: Login to Amazon ECR
@@ -60,16 +43,18 @@ jobs:
 
     - name: Build, tag, and push image to Amazon ECR
       id: build-image
+      shell: bash
       run: |
         docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repository }}:${{ github.sha }} .
         docker push ${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repository }}:${{ github.sha }}
         echo "image=${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repository }}:${{ github.sha }}" >> $GITHUB_OUTPUT
-    
+
     - name: Get ECS task definition
       id: task-definition
+      shell: bash
       run: |
         echo "task-definition=$(aws ecs describe-task-definition \
-        --task-definition ${{ inputs.task_definition }} \
+        --task-definition ${{ inputs.ecs-task-definition }} \
         --query taskDefinition \
         --output json)" >> $GITHUB_OUTPUT
 
@@ -77,7 +62,7 @@ jobs:
       id: task-def
       uses: aws-actions/amazon-ecs-render-task-definition@v1
       with:
-        task-definition: ${{ inputs.task_definition }}
+        task-definition: ${{ inputs.ecs-task-definition }}
         container-name: ${{ inputs.container-name }}
         image: ${{ steps.build-image.outputs.image }}
 

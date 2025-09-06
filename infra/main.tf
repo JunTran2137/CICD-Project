@@ -1,330 +1,16 @@
 module "ecs" {
   source = "terraform-aws-modules/ecs/aws"
 
-  # Cluster configuration
-  cluster_name = local.name  
+  for_each = var.ecs_clusters
+
+  cluster_name = each.value.cluster_name 
   cluster_service_connect_defaults = {
     namespace = aws_service_discovery_http_namespace.this.arn
   }
-
-  # Infrastructure
-  default_capacity_provider_strategy = {
-    FARGATE = {
-      weight = 50
-      base   = 20
-    }
-    FARGATE_SPOT = {
-      weight = 50
-    }
-  }
-
-  # Monitoring
-	cluster_setting = [
-		{
-			name	= "containerInsights"
-			value = "enabled"
-		}
-	]
-  
-  # Encryption 
-  cluster_configuration = {
-    managed_storage_configuration = {
-      kms_key_id                           = aws_kms_key.ecs_managed_storage.arn
-      fargate_ephemeral_storage_kms_key_id = aws_kms_key.ecs_fargate_ephemeral.arn
-    }
-  }
-
-  services = {
-    cicd-lab-frontend = {
-      # Task definition family
-      family = "${local.name}-frontend"
-
-      # Launch type
-      requires_compatibilities = ["FARGATE"]
-
-      # OS, Architecture, Network mode
-      runtime_platform = {
-				operating_system_family = "LINUX"
-				cpu_architecture = "X86_64"
-			}
-      # network_mode = "awsvpc"
-
-      # Task size
-      cpu    = var.container_cpu * 2
-      memory = var.container_memory * 3		
-
-      # Task roles
-      tasks_iam_role_name = "${local.name}-frontend"
-      tasks_iam_role_description = "Example tasks IAM role for ${local.name}"
-      tasks_iam_role_tags = local.tags
-      tasks_iam_role_policies = { 
-        ReadOnlyAccess = "arn:aws:iam::aws:policy/ReadOnlyAccess" 
-      }
-
-      # Task execution role
-      task_exec_secret_arns = []
-
-      # Fault injection
-			enable_fault_injection = false
-      
-      container_definitions = {
-        container-1 = {
-          # Container details
-					name 		  = var.container_name
-					image     = var.container_image
-					essential = true
-
-          # Private registry
-          repositoryCredentials = {
-            # credentialsParameter = null
-          }
-          # Port mappings
-					portMappings = [
-            {
-              containerPort = local.container_port
-              protocol      = "tcp"
-              name          = local.container_name
-              appProtocol   = "http"              
-            }
-          ]
-          
-          # Read only root file system
-					readonlyRootFilesystem = false
-
-          # Resource allocation limits
-					cpu       = var.container_cpu
-          memory    = var.container_memory
-					memoryReservation = var.container_memory_reservation
-
-          # Environment variables
-          environment = [
-            # {
-            #   name  = null
-            #   value = null
-            # }
-          ]
-          environmentFiles = [
-            # {
-            #   type  = null
-            #   value = null
-            # }
-          ]
-
-          # Log collection
-          logConfiguration = {
-            logDriver = "awslogs"
-            options = {
-              "awslogs-group"         = "/ecs/"
-              "awslogs-region"        = "ap-southeast-2"
-              "awslogs-stream-prefix" = "ecs"
-              "awslogs-create-group"  = "true"
-            }
-          }
-
-          # Restart policy
-          restartPolicy = {
-            enabled                   = false
-            ignoredExitCodes         = []
-            restartAttemptPeriod     = null
-          }
-
-          # HealthCheck
-          healthCheck = {
-            command     = []
-            interval    = null
-            timeout     = null
-            startPeriod = null
-            retries     = null
-          }
-
-          # Container timeouts
-          startTimeout = null
-          stopTimeout  = null
-          
-          # Docker configuration
-          entryPoint      = []
-          command         = []
-          workingDirectory = null
-
-          # Ulimits
-          ulimits = [
-            # {
-            #   name      = null
-            #   softLimit = null
-            #   hardLimit = null
-            # }          
-          ]
-
-          # Docker labels
-          dockerLabels    = {}
-        }
-      }
-
-      # Ephemeral storage
-			ephemeral_storage = { 
-        # size_in_gib = null
-      }
-
-      # Volume
-			volume = {
-        "efs" = {
-          name = "efs-storage"
-          configure_at_launch = false
-          efs_volume_configuration = {
-            file_system_id          = "fs-12345678"
-            root_directory          = "/data"
-            authorization_config = {
-              access_point_id = "fsap-12345678"
-              iam             = "ENABLED"
-            }
-            transit_encryption      = "ENABLED"
-            transit_encryption_port = 2049
-          }
-        }
-      }
-
-      # Container mount points
-      mountPoints = [
-        {
-          sourceVolume  = "efs-volume"
-          containerPath = "/app/data"
-          readOnly      = false
-        }
-      ]
-
-      # Volumes from
-      volumesFrom = [
-        # {
-        #   sourceContainer = "data-container"
-        #   readOnly        = true
-        # }
-      ]
-
-      # Task definition tags
-			task_tags = local.tags
-
-			# Service name
-			name = "${local.name}-frontend"
-
-      # Compute configuration
-      capacity_provider_strategy = {
-        fargate = {
-          capacity_provider = "FARGATE"
-          base              = 0
-          weight            = 1
-        }
-      }
-      platform_version = "LATEST"
-
-			# Deployment configuration
-			scheduling_strategy = "REPLICA"
-			desired_count      = var.service_desired_count
-			availability_zone_rebalancing = "ENABLED"
-			health_check_grace_period_seconds = 0
-
-      # Deployment options
-      deployment_controller = {
-        type = "ECS"
-      }
-      deployment_configuration = {
-        strategy = "ROLLING"
-      }
-      deployment_minimum_healthy_percent = 100
-      deployment_maximum_percent = 200
-      
-      # Deployment failure detection
-      deployment_circuit_breaker = {
-        enable   = true
-        rollback = true
-      }
-      alarms = {
-        enable      = true
-        alarm_names = ["my-alarm-name"]
-        rollback    = true
-      }
-
-			# Networking
-			subnet_ids				 = module.vpc.private_subnets
-			security_group_ids = [module.sg-ecs.security_group_id]
-			assign_public_ip = false
-
-			# Srvice Connect 
-      service_connect_configuration = {
-        enabled   = true
-        namespace = aws_service_discovery_http_namespace.this.arn
-        service = [
-          {
-            port_name      = local.container_name
-            discovery_name = local.container_name
-            client_alias = {
-              dns_name = local.container_name
-              port     = local.container_port
-            }
-
-            tls = {
-              role_arn = module.tls_role.iam_role_arn
-              issuer_cert_authority = {
-                aws_pca_authority_arn = aws_acmpca_certificate_authority.this.arn
-              }
-              kms_key = module.tls_role.kms_key_arn
-            }
-
-            timeout = {
-              idle_timeout_seconds = 3600
-            }
-
-            log_configuration = {
-              log_driver = "awslogs"
-              options = {
-                "awslogs-group"         = "/ecs/aaa-service-r042kp2x"
-                "awslogs-region"        = "ap-southeast-2"
-                "awslogs-stream-prefix" = "ecs"
-                "awslogs-create-group"  = "true"
-              }
-            }
-          }
-        ]
-      }
-
-      # Load balancing
-      load_balancer = {
-        service = {
-          container_name   = local.container_name
-          container_port   = local.container_port
-          target_group_arn = module.alb.target_groups["ex_ecs"].arn
-        }
-      }
-
-      # VPC Lattice
-      vpc_lattice_configurations = {
-        role_arn         = aws_iam_role.vpc_lattice_role.arn
-        target_group_arn = module.vpc_lattice.target_groups["your-target-group"].arn
-        port_name        = local.container_name
-      }
-      
-      # Service auto scaling
-      enable_autoscaling       = true
-      autoscaling_min_capacity = var.autoscaling_min_capacity
-      autoscaling_max_capacity = var.autoscaling_max_capacity
-      autoscaling_policies = {
-        cpu_target_tracking = {
-          policy_type = "TargetTrackingScaling"
-          name        = "ECSServiceMetric"
-          target_tracking_scaling_policy_configuration = {
-            predefined_metric_specification = {
-              predefined_metric_type = "ECSServiceAverageCPUUtilization"
-            }
-            target_value       = var.autoscaling_cpu_target
-            scale_out_cooldown = 300
-            scale_in_cooldown  = 300
-            disable_scale_in   = false
-          }
-        }
-      }
-
-      service_tags = local.tags
-    }
-  }
+  default_capacity_provider_strategy = each.value.default_capacity_provider_strategy
+  cluster_setting                    = each.value.cluster_setting
+  cluster_configuration              = each.value.cluster_configuration
+  services                           = each.value.services
 
   tags = local.tags
 }
@@ -332,106 +18,62 @@ module "ecs" {
 module "alb" {
   source = "terraform-aws-modules/alb/aws"
 
-	load_balancer_type = "application"
-  name               = local.name
-	internal           = false
-	ip_address_type    = "ipv4"
-  vpc_id             = module.vpc.vpc_id
-  subnets            = module.vpc.public_subnets
-	security_groups    = [module.sg-alb.security_group_id]
+  for_each = var.albs
 
-  listeners = {
-    http-https-redirect = {
-      port     = 80
-      protocol = "HTTP"
+	load_balancer_type = each.value.load_balancer_type
+  name               = each.value.name
+	internal           = each.value.internal
+	ip_address_type    = each.value.ip_address_type
+  vpc_id             = module.vpc[each.value.vpc_key].vpc_id
+  subnets            = module.vpc[each.value.vpc_key].public_subnets
+  security_groups    = [module.sg[each.value.sg_key].security_group_id]
 
-      redirect = {
-        port        = "443"
-        protocol    = "HTTPS"
-        status_code = "HTTP_301"
-      }
-    }
+  listeners = each.value.listeners
 
-    https = {
-      port                        = 443
-      protocol                    = "HTTPS"
-      ssl_policy                  = "ELBSecurityPolicy-TLS13-1-2-Res-2021-06"
-      certificate_arn             = module.acm.acm_certificate_arn
-      additional_certificate_arns = [module.wildcard_cert.acm_certificate_arn]
+  target_groups = each.value.target_groups
 
-      forward = {
-        target_group_key = "ex-instance"
-      }
-    }
-  }
-
-  target_groups = {
-		ecs = {
-			target_type      = "ip"
-			name             = "cicd-lab"
-			protocol         = "HTTP"
-			port             = 80
-			ip_address_type	 = "ipv4"
-			vpc_id           = module.vpc.vpc_id
-			protocol_version = "HTTP1"
-
-			health_check = {
-				enabled             = true
-				protocol            = "HTTP"
-				path                = "/"
-				port                = "traffic-port"
-				healthy_threshold   = 5
-				unhealthy_threshold = 2
-				timeout             = 5				
-				interval            = 30
-				matcher             = "200"
-			}
-
-			tags = local.tags
-		}
-  }
-
-  tags = local.tags
+  tags = each.value.tags
 }
 
-module "sg-alb" {
+module "sg" {
   source = "terraform-aws-modules/security-group/aws"
 
-  name        = "${local.name}-alb"
-  description = "Security group for ALB"
-  vpc_id      = module.vpc.vpc_id
+  for_each = var.sgs
 
-  ingress_cidr_blocks = ["0.0.0.0/0"]
-  ingress_rules = ["https-443-tcp"]
+  name        = each.value.name
+  description = each.value.description
+  vpc_id      = module.vpc[each.value.vpc_key].vpc_id
 
-  egress_cidr_blocks = ["0.0.0.0/0"]
-  egress_with_source_security_group_id = [ 
-		{
-			rule = "all-all"
-		}
-	 ]
+  ingress_cidr_blocks = each.value.ingress_cidr_blocks
+  ingress_rules       = each.value.ingress_rules
 
-	tags = local.tags
+  egress_rules                         = each.value.egress_rules
+  egress_with_source_security_group_id = each.value.egress_with_source_security_group_id
+
+  tags = each.value.tags
 }
+
 
 module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
-  name = local.name
-  cidr = local.vpc_cidr
+  for_each = var.vpcs
 
-  azs                 = local.azs
-  private_subnets     = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k)]
-  public_subnets      = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 4)]
+  name = each.value.name
+  cidr = each.value.cidr
 
-  enable_nat_gateway = false
-  single_nat_gateway = false
-  one_nat_gateway_per_az = false
+  azs              = each.value.azs
+  private_subnets  = each.value.private_subnets
+  public_subnets   = each.value.public_subnets
 
-  enable_dns_hostnames = true
-  enable_dns_support   = true
+  enable_nat_gateway     = each.value.enable_nat_gateway
+  single_nat_gateway     = each.value.single_nat_gateway
+  one_nat_gateway_per_az = each.value.one_nat_gateway_per_az
 
-  tags = local.tags
+  enable_dns_hostnames = each.value.enable_dns_hostnames
+  enable_dns_support   = each.value.enable_dns_support
+
+  tags = each.value.tags
 }
 
 module "db" {

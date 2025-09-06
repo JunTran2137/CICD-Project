@@ -1,0 +1,82 @@
+name: 'Terraform Action'
+description: 'Reusable GitHub Action for Terraform operations'
+
+inputs:
+  working-directory:
+    description: 'Terraform working directory'
+    required: true
+    default: './infra'
+
+  environment:
+    description: 'Deployment environment'
+    required: true
+    default: 'development'
+
+  aws-region: 
+    description: 'AWS Region'
+    required: true
+    default: 'us-east-1'
+
+
+
+outputs:
+  ecr_repository:
+    description: 'ECR Repository Name'
+    value: ${{ steps.apply.outputs.ecr_repository }}
+  ecs_cluster:
+    description: 'ECS Cluster Name'
+    value: ${{ steps.apply.outputs.ecs_cluster }}
+  ecs_service:
+    description: 'ECS Service Name'
+    value: ${{ steps.apply.outputs.ecs_service }}
+  task_definition:
+    description: 'Task Definition Name'
+    value: ${{ steps.apply.outputs.task_definition }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Terraform Init
+      run: terraform init
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+
+    - name: Terraform Format
+      run: terraform fmt -check
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+
+    - name: Terraform Plan
+      run: terraform plan -input=false
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+
+    - name: Terraform Apply
+      id: apply
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: |
+        terraform apply -auto-approve -input=false
+        echo "ecr_repository=$(terraform output -raw ecr_repository_name)" >> $GITHUB_OUTPUT
+        echo "ecs_cluster=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
+        echo "ecs_service=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
+        echo "task_definition=$(terraform output -raw task_definition_name)" >> $GITHUB_OUTPUT
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+
+    - name: Set Outputs
+      run: |
+        echo "ecr_repository=${{ steps.apply.outputs.ecr_repository }}" >> $GITHUB_OUTPUT
+        echo "ecs_cluster=${{ steps.apply.outputs.ecs_cluster }}" >> $GITHUB_OUTPUT
+        echo "ecs_service=${{ steps.apply.outputs.ecs_service }}" >> $GITHUB_OUTPUT
+        echo "task_definition=${{ steps.apply.outputs.task_definition }}" >> $GITHUB_OUTPUT
+      shell: bash
