@@ -2,7 +2,7 @@ data "aws_availability_zones" "available" {}
 
 locals {
   name   = "ex-${basename(path.cwd)}"
-  region = "ap-southeast-1"
+  region = "ap-southeast-2"
 
   vpc_cidr = "10.0.0.0/16"
   azs      = slice(data.aws_availability_zones.available.names, 0, 3)
