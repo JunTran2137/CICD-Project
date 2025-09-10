@@ -95,15 +95,17 @@ variable "acms" {
 variable "albs" {
   description = "Map of Application Load Balancer configurations"
   type = map(object({
-    name               = optional(string)
-    load_balancer_type = optional(string)
-    internal           = optional(bool)
-    ip_address_type    = optional(string)
-    vpc_key            = optional(string)
-    sg_key             = optional(string)
-    listeners          = optional(map(any))
-    target_groups      = optional(map(any))
-    tags               = optional(map(string))
+    load_balancer_type    = optional(string)
+    name                  = optional(string)
+    internal              = optional(bool)
+    ip_address_type       = optional(string)
+    vpc_key               = optional(string)
+    ipam_pools            = optional(map(string))
+    sg_key                = optional(string)
+    create_security_group = optional(bool)
+    listeners             = optional(any)
+    target_groups         = optional(any)
+    tags                  = optional(map(string))
   }))
   default = {}
 }
@@ -114,8 +116,9 @@ variable "albs" {
 variable "route53_records" {
   description = "Map of Route53 record configurations"
   type = map(object({
-    records = optional(list(object({
-      alias_key = optional(string)
+    zone_key = optional(string)
+    records  = optional(list(object({
+      alb_key = optional(string)
       name      = optional(string)
       type      = optional(string)
       alias     = optional(object({
@@ -129,65 +132,101 @@ variable "route53_records" {
 }
 
 ################################################################################
+# RDS
+################################################################################
+variable "rds_databases" {
+  description = "Map of RDS database configurations"
+  type = map(object({
+    allocated_storage                     = optional(number)
+    auto_minor_version_upgrade            = optional(bool)
+    backup_retention_period               = optional(number)
+    backup_window                         = optional(string)
+    ca_cert_identifier                    = optional(string)
+    copy_tags_to_snapshot                 = optional(bool)
+    create_cloudwatch_log_group           = optional(bool)
+    create_db_subnet_group                = optional(bool)
+    create_monitoring_role                = optional(bool)
+    db_name                               = optional(string)
+    db_subnet_group_description           = optional(string)
+    db_subnet_group_name                  = optional(string)
+    dedicated_log_volume                  = optional(bool)
+    enabled_cloudwatch_logs_exports       = optional(list(string))
+    engine                                = optional(string)
+    engine_lifecycle_support              = optional(string)
+    engine_version                        = optional(string)
+    family                                = optional(string)
+    identifier                            = optional(string)
+    instance_class                        = optional(string)
+    iops                                  = optional(number)
+    kms_key_id                            = optional(string)
+    maintenance_window                    = optional(string)
+    major_engine_version                  = optional(string)
+    manage_master_user_password           = optional(bool)
+    master_user_secret_kms_key_id         = optional(string)
+    max_allocated_storage                 = optional(number)
+    monitoring_interval                   = optional(number)
+    monitoring_role_description           = optional(string)
+    monitoring_role_name                  = optional(string)
+    multi_az                              = optional(bool)
+    network_type                          = optional(string)
+    performance_insights_enabled          = optional(bool)
+    performance_insights_kms_key_id       = optional(string)
+    performance_insights_retention_period = optional(number)
+    port                                  = optional(number)
+    publicly_accessible                   = optional(bool)
+    sg_key                                = optional(string)
+    storage_encrypted                     = optional(bool)
+    storage_type                          = optional(string)
+    tags                                  = optional(map(string))
+    username                              = optional(string)
+    vpc_key                               = optional(string)
+  }))
+  default = {}
+}
+
+################################################################################
+# ECR
+################################################################################
+variable "ecr_repositories" {
+  description = "Map of ECR repository configurations"
+  type = map(object({
+    repository_name                                  = optional(string)
+    repository_image_tag_mutability                  = optional(string)
+    repository_image_tag_mutability_exclusion_filter = optional(list(object({
+      filter      = string
+      filter_type = string
+    })))
+    repository_encryption_type        = optional(string)
+    repository_image_scan_on_push     = optional(bool)
+    repository_lifecycle_policy       = optional(any)
+    tags                              = optional(map(string))
+  }))
+  default = {}
+}
+
+################################################################################
 # ECS
 ################################################################################
-# variable "ecs_clusters" {
-#   description = "Map of ECS Cluster configurations"
-#   type = map(object({
-#     cluster_name                        = string
-#     default_capacity_provider_strategy  = optional(map(any))
-#     cluster_setting                     = optional(list(map(string)))
-#     cluster_configuration              = optional(map(any))
-#     services                           = optional(map(any))
-#   }))
-# }
+variable "namespaces" {
+  description = "Map of Service Discovery HTTP Namespace configurations"
+  type = map(object({
+    name        = optional(string)
+    description = optional(string)
+    tags        = optional(map(string))
+  }))
+  default = {}
+}
 
-# variable "dbs" {
-#   description = "Map of RDS database configurations"
-#   type = map(object({
-#     allocated_storage                 = number
-#     auto_minor_version_upgrade        = bool
-#     backup_retention_period           = number
-#     backup_window                     = string
-#     ca_cert_identifier                = optional(string)
-#     copy_tags_to_snapshot             = bool
-#     create_cloudwatch_log_group       = optional(bool)
-#     create_db_subnet_group            = bool
-#     create_monitoring_role            = bool
-#     db_name                           = string
-#     db_subnet_group_description       = optional(string)
-#     db_subnet_group_name              = optional(string)
-#     dedicated_log_volume              = optional(bool)
-#     enabled_cloudwatch_logs_exports   = optional(list(string))
-#     engine                            = string
-#     engine_lifecycle_support          = string
-#     engine_version                    = string
-#     family                            = string
-#     identifier                        = string
-#     instance_class                    = string
-#     iops                              = optional(number)
-#     kms_key_id                        = optional(string)
-#     maintenance_window                = string
-#     major_engine_version              = string
-#     manage_master_user_password       = bool
-#     master_user_secret_kms_key_id     = optional(string)
-#     max_allocated_storage             = optional(number)
-#     monitoring_interval               = optional(number)
-#     monitoring_role_description       = optional(string)
-#     monitoring_role_name              = optional(string)
-#     multi_az                          = bool
-#     network_type                      = string
-#     performance_insights_enabled      = bool
-#     performance_insights_kms_key_id       = optional(string)
-#     performance_insights_retention_period = optional(number)
-#     port                              = number
-#     publicly_accessible               = bool
-#     sg_key                            = string
-#     storage_encrypted                 = bool
-#     storage_type                      = string
-#     tags                              = map(string)
-#     username                          = string
-#     vpc_key                           = string
-#   }))
-# }
+variable "ecs_clusters" {
+  description = "Map of ECS Cluster configurations"
+  type = map(object({
+    cluster_name                       = optional(string)
+    default_capacity_provider_strategy = optional(map(any))
+    cluster_setting                    = optional(list(map(string)))
+    cluster_configuration              = optional(map(any))
+    services                           = optional(map(any))
+    tags                               = optional(map(string))
+  }))
+  default = {}
+}
 

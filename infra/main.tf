@@ -6,24 +6,24 @@ module "vpc" {
 
   for_each = var.vpcs
 
-  name             = each.value.name
-  cidr             = each.value.cidr
-  enable_ipv6      = each.value.enable_ipv6
-  instance_tenancy = each.value.instance_tenancy
+  name             = try(each.value.name, null)
+  cidr             = try(each.value.cidr, null)
+  enable_ipv6      = try(each.value.enable_ipv6, false)
+  instance_tenancy = try(each.value.instance_tenancy, "default")
 
-  azs              = each.value.azs
-  private_subnets  = each.value.private_subnets
-  public_subnets   = each.value.public_subnets
-  database_subnets = each.value.database_subnets
+  azs              = try(each.value.azs, [])
+  private_subnets  = try(each.value.private_subnets, [])
+  public_subnets   = try(each.value.public_subnets, [])
+  database_subnets = try(each.value.database_subnets, [])
 
-  enable_nat_gateway     = each.value.enable_nat_gateway
-  single_nat_gateway     = each.value.single_nat_gateway
-  one_nat_gateway_per_az = each.value.one_nat_gateway_per_az
+  enable_nat_gateway     = try(each.value.enable_nat_gateway, false)
+  single_nat_gateway     = try(each.value.single_nat_gateway, false)
+  one_nat_gateway_per_az = try(each.value.one_nat_gateway_per_az, false)
 
-  enable_dns_hostnames = each.value.enable_dns_hostnames
-  enable_dns_support   = each.value.enable_dns_support
+  enable_dns_hostnames = try(each.value.enable_dns_hostnames, true)
+  enable_dns_support   = try(each.value.enable_dns_support, true)
 
-  tags = each.value.tags
+  tags = try(each.value.tags, {})
 }
 
 ################################################################################
@@ -34,26 +34,26 @@ module "sg" {
 
   for_each = var.sgs
 
-  name        = each.value.name
-  description = each.value.description
-  vpc_id      = module.vpc[each.value.vpc_key].vpc_id
+  name        = try(each.value.name, null)
+  description = try(each.value.description, null)
+  vpc_id      = try(module.vpc[each.value.vpc_key].vpc_id, null)
 
-  ingress_cidr_blocks = coalesce(each.value.ingress_cidr_blocks, [])
-  ingress_rules       = coalesce(each.value.ingress_rules, [])
+  ingress_cidr_blocks = try(each.value.ingress_cidr_blocks, [])
+  ingress_rules       = try(coalesce(each.value.ingress_rules, []), [])
 
-  tags = each.value.tags
+  tags = try(each.value.tags, {})
 }
 
 resource "aws_security_group_rule" "this" {
   for_each = var.sg_rules
 
-  security_group_id        = module.sg[each.value.sg_key].security_group_id
-  source_security_group_id = module.sg[each.value.source_sg_key].security_group_id
-  type                     = each.value.type
-  from_port                = each.value.from_port
-  to_port                  = each.value.to_port
-  protocol                 = each.value.protocol
-  description              = each.value.description
+  security_group_id        = try(module.sg[each.value.sg_key].security_group_id, null)
+  source_security_group_id = try(module.sg[each.value.source_sg_key].security_group_id, null)
+  type                     = try(each.value.type, null)
+  from_port                = try(each.value.from_port, null)
+  to_port                  = try(each.value.to_port, null)
+  protocol                 = try(each.value.protocol, null)
+  description              = try(each.value.description, null)
 }
 
 ################################################################################
@@ -64,8 +64,8 @@ module "route53_zones" {
 
   for_each = var.route53_zones
   
-  zones = each.value.zones
-  tags  = each.value.tags
+  zones = try(each.value.zones, {})
+  tags  = try(each.value.tags, {})
 }
 
 ################################################################################
@@ -76,176 +76,79 @@ module "acm" {
 
   for_each = var.acms
 
-  domain_name       = values(module.route53_zones[each.value.zone_key].route53_zone_name)[0]
-  zone_id           = values(module.route53_zones[each.value.zone_key].route53_zone_zone_id)[0]
-  export            = each.value.export
-  validation_method = each.value.validation_method
-  key_algorithm     = each.value.key_algorithm
+  domain_name       = try(values(module.route53_zones[each.value.zone_key].route53_zone_name)[0], null)
+  zone_id           = try(values(module.route53_zones[each.value.zone_key].route53_zone_zone_id)[0], null)
+  export            = try(each.value.export, null)
+  validation_method = try(each.value.validation_method, null)
+  key_algorithm     = try(each.value.key_algorithm, null)
 
-  subject_alternative_names = [
+  subject_alternative_names = try([
     "*.${values(module.route53_zones[each.value.zone_key].route53_zone_name)[0]}"
-  ]
+  ], [])
 
-  tags = each.value.tags
+  tags = try(each.value.tags, {})
 }
 
 ################################################################################
 # ALB
 ################################################################################
-# module "alb" {
-#   source = "terraform-aws-modules/alb/aws"
+module "alb" {
+  source = "terraform-aws-modules/alb/aws"
 
-#   for_each = var.albs
+  for_each = var.albs
 
-# 	load_balancer_type = each.value.load_balancer_type
-#   name               = each.value.name
-# 	internal           = each.value.internal
-# 	ip_address_type    = each.value.ip_address_type
-#   vpc_id             = module.vpc[each.value.vpc_key].vpc_id
-#   subnets            = module.vpc[each.value.vpc_key].public_subnets
-#   security_groups    = [module.sg[each.value.sg_key].security_group_id]
+  load_balancer_type    = try(each.value.load_balancer_type, null)
+  name                  = try(each.value.name, null)
+  internal              = try(each.value.internal, false)
+  ip_address_type       = try(each.value.ip_address_type, null)
+  vpc_id                = try(module.vpc[each.value.vpc_key].vpc_id, null)
+  ipam_pools            = try(coalesce(each.value.ipam_pools, {}), {})
+  subnets               = try(module.vpc[each.value.vpc_key].public_subnets, [])
+  security_groups       = try([module.sg[each.value.sg_key].security_group_id], [])
+  create_security_group = try(each.value.create_security_group, false)
 
-#   listeners = {
-#     for k, v in each.value.listeners : k => merge(v, {
-#       target_group_key = try(v.target_group_key, null)
-#       target_group_arn = try(v.target_group_key != null ? module.alb[each.key].target_groups[v.target_group_key].arn : null, null)
-#       additional_certificate_arns = try(k == "https" ? [module.wildcard_cert.acm_certificate_arn] : [], [])
-#     })
-#   }
+  listeners = try({
+    for k, v in each.value.listeners : k => merge(v, {
+      certificate_arn = try(v.acm_key, null) != null ? module.acm[v.acm_key].acm_certificate_arn : null
+    })
+  }, {})
+  
+  target_groups = try({
+    for k, v in each.value.target_groups : k => merge(v, {
+      vpc_id = module.vpc[v.vpc_key].vpc_id
+    })
+  }, {})
 
-#   target_groups = {
-#     for k, v in each.value.target_groups : k => merge(v, {
-#       vpc_id = module.vpc[each.value.vpc_key].vpc_id
-#     })
-#   }
-
-#   tags = each.value.tags
-# }
+  tags = try(each.value.tags, {})
+}
 
 ################################################################################
 # Route 53 Record
 ################################################################################
-# module "route53_records" {
-#   source = "terraform-aws-modules/route53/aws//modules/records"
+module "route53_records" {
+  source = "terraform-aws-modules/route53/aws//modules/records"
 
-#   for_each = var.route53_records
+  for_each = var.route53_records
 
-#   zone_id = module.route53_zones.zone_ids[each.value.zone_key]
-#   records = {
-#     for k, v in each.value.records : k => merge(v, {
-#       name    = module.alb[each.value.records.alias_key].dns_name
-#       zone_id = module.alb[each.value.records.alias_key].zone_id
-#     })
-#   }
-# }
+  zone_id = try(values(module.route53_zones[each.value.zone_key].route53_zone_zone_id)[0], null)
 
+  records = try([
+    for record in each.value.records : merge(record, {
+      alias = merge(record.alias, {
+        name    = try(record.alb_key, null) != null ? module.alb[record.alb_key].dns_name : null
+        zone_id = try(record.alb_key, null) != null ? module.alb[record.alb_key].zone_id : null
+      })
+    })
+  ], [])
+}
 
-# module "vpc_lattice" {
-#   source = "terraform-aws-modules/vpc-lattice/aws"
-  
-#   name = "example"
-  
-#   target_groups = {
-#     "your-target-group" = {
-#       type = "IP"
-#       targets = {
-#         target1 = {
-#           ip        = "10.0.0.1"
-#           port      = 80
-#         }
-#       }
-#     }
-#   }
-# }
-
-# module "ecs" {
-#   source = "terraform-aws-modules/ecs/aws"
-
-#   for_each = var.ecs_clusters
-
-#   cluster_name = each.value.cluster_name
-
-#   cluster_service_connect_defaults = {
-#     namespace = aws_service_discovery_http_namespace.this.arn
-#   }
-
-#   default_capacity_provider_strategy = each.value.default_capacity_provider_strategy
-#   cluster_setting                    = each.value.cluster_setting
-
-#   cluster_configuration = {
-#     managed_storage_configuration = {
-#       kms_key_id                           = aws_kms_key.ecs_managed_storage.arn
-#       fargate_ephemeral_storage_kms_key_id = aws_kms_key.ecs_fargate_ephemeral.arn
-#     }
-#   }
-
-#   services = {
-#     for service_key, service in each.value.services : service_key => merge(
-#       service,
-#       {
-#         service_connect_configuration = try(
-#           service.service_connect_configuration != null ? merge(
-#             service.service_connect_configuration,
-#             {
-#               service = [
-#                 for svc in service.service_connect_configuration.service : merge(
-#                   svc,
-#                   {
-#                     tls = merge(
-#                       svc.tls,
-#                       {
-#                         role_arn = aws_iam_role.tls_role.arn,
-#                         issuer_cert_authority = {
-#                           aws_pca_authority_arn = aws_acmpca_certificate_authority.this.arn
-#                         },
-#                         kms_key = aws_kms_key.ecs_managed_storage.arn
-#                       }
-#                     )
-#                   }
-#                 )
-#               ]
-#             }
-#           ) : null,
-#           null
-#         ),
-#         load_balancer = try(
-#           service.load_balancer != null ? {
-#             for lb_key, lb in service.load_balancer : lb_key => merge(
-#               lb,
-#               {
-#                 target_group_arn = module.alb[each.key].target_groups[lb.target_group_key].arn
-#               }
-#             )
-#           } : null,
-#           null
-#         ),
-#         vpc_lattice_configurations = try(
-#           service.vpc_lattice_configurations != null ? merge(
-#             service.vpc_lattice_configurations,
-#             {
-#               role_arn = aws_iam_role.vpc_lattice_role.arn,
-#               target_group_arn = module.vpc_lattice.target_groups["your-target-group"].arn
-#             }
-#           ) : null,
-#           null
-#         )
-#       }
-#     )
-#   }
-
-#   tags = local.tags
-# }
-
-
-
-
-
-
-
-# module "db" {
+################################################################################
+# RDS
+################################################################################
+# module "rds" {
 #   source = "terraform-aws-modules/rds/aws"
 
-#   for_each = var.dbs
+#   for_each = var.rds_databases
 
 #   # Engine options
 #   engine                   = each.value.engine
@@ -316,4 +219,89 @@ module "acm" {
 #   auto_minor_version_upgrade = each.value.auto_minor_version_upgrade
 #   maintenance_window         = each.value.maintenance_window  
 #   deletion_protection        = false  
+# }
+
+################################################################################
+# ECR
+################################################################################
+module "ecr" {
+  source = "terraform-aws-modules/ecr/aws"
+
+  for_each = var.ecr_repositories
+
+  repository_name                                  = try(each.value.repository_name, null)
+  repository_image_tag_mutability                  = try(each.value.repository_image_tag_mutability, null)
+  repository_image_tag_mutability_exclusion_filter = try(each.value.repository_image_tag_mutability_exclusion_filter, null)
+  repository_encryption_type                       = try(each.value.repository_encryption_type, null)
+  repository_image_scan_on_push                    = try(each.value.repository_image_scan_on_push, true)
+  repository_lifecycle_policy                      = try(jsonencode(each.value.repository_lifecycle_policy), null)
+
+  tags = try(each.value.tags, {})
+}
+
+################################################################################
+# ECS
+################################################################################
+resource "aws_service_discovery_http_namespace" "this" {
+  for_each = var.namespaces
+
+  name        = try(each.value.name, null)
+  description = try(each.value.description, null)
+  tags        = try(each.value.tags, {})
+}
+
+# module "ecs" {
+#   source = "terraform-aws-modules/ecs/aws"
+
+#   for_each = var.ecs_clusters
+
+#   cluster_name = each.value.cluster_name
+
+#   cluster_service_connect_defaults = {
+#     namespace = aws_service_discovery_http_namespace.this.arn
+#   }
+
+#   default_capacity_provider_strategy = each.value.default_capacity_provider_strategy
+#   cluster_setting                    = each.value.cluster_setting
+
+#   cluster_configuration = {
+#     for k, v in each.value.cluster_configuration : k => merge(v, {
+#       execute_command_configuration = merge(v.execute_command_configuration, {
+#           kms_key_id = module.kms["ecs-exec"].kms_key_id
+#       })
+
+#       managed_storage_configuration = {
+#         kms_key_id                           = aws_kms_key.ecs_managed_storage.arn
+#         fargate_ephemeral_storage_kms_key_id = aws_kms_key.ecs_fargate_ephemeral.arn
+#       }
+#     })
+#   }
+
+#   services = {
+#     for k, v in each.value.services : k => merge(v, {
+#       service_connect_configuration = merge(v.service_connect_configuration, {
+#         service = [
+#           for service in v.service_connect_configuration : merge(service, {
+#             tls = merge(v1.tls, {
+#               role_arn = aws_iam_role.tls_role.arn,
+
+#               issuer_cert_authority = {
+#                 aws_pca_authority_arn = aws_acmpca_certificate_authority.this.arn
+#               },
+
+#               kms_key = aws_kms_key.ecs_managed_storage.arn
+#             })
+#           })
+#         ]}
+#       )
+
+#       load_balancer = {
+#         for k2, v2 in v.load_balancer : k2 => merge(v2, {
+#           target_group_arn = module.alb[each.key].target_groups[v2.target_group_key].arn
+#         })
+#       }
+#     })
+#   }
+
+#   tags = local.tags
 # }
