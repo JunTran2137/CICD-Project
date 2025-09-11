@@ -1,3 +1,11 @@
+variable "environment_tags" {
+  description = "Deployment environment"
+  type        = map(string)
+  default     = {
+    Environment = "n/a"
+  }
+}
+
 ################################################################################
 # VPC
 ################################################################################
@@ -137,49 +145,52 @@ variable "route53_records" {
 variable "rds_databases" {
   description = "Map of RDS database configurations"
   type = map(object({
-    allocated_storage                     = optional(number)
-    auto_minor_version_upgrade            = optional(bool)
-    backup_retention_period               = optional(number)
-    backup_window                         = optional(string)
-    ca_cert_identifier                    = optional(string)
-    copy_tags_to_snapshot                 = optional(bool)
-    create_cloudwatch_log_group           = optional(bool)
-    create_db_subnet_group                = optional(bool)
-    create_monitoring_role                = optional(bool)
-    db_name                               = optional(string)
-    db_subnet_group_description           = optional(string)
-    db_subnet_group_name                  = optional(string)
-    dedicated_log_volume                  = optional(bool)
-    enabled_cloudwatch_logs_exports       = optional(list(string))
     engine                                = optional(string)
-    engine_lifecycle_support              = optional(string)
     engine_version                        = optional(string)
-    family                                = optional(string)
+    engine_lifecycle_support              = optional(string)
+    multi_az                              = optional(bool)
     identifier                            = optional(string)
-    instance_class                        = optional(string)
-    iops                                  = optional(number)
-    kms_key_id                            = optional(string)
-    maintenance_window                    = optional(string)
-    major_engine_version                  = optional(string)
+    username                              = optional(string)
     manage_master_user_password           = optional(bool)
     master_user_secret_kms_key_id         = optional(string)
+    instance_class                        = optional(string)
+    storage_type                          = optional(string)
+    allocated_storage                     = optional(number)
+    iops                                  = optional(number)
+    storage_throughput                    = optional(number)
     max_allocated_storage                 = optional(number)
-    monitoring_interval                   = optional(number)
-    monitoring_role_description           = optional(string)
-    monitoring_role_name                  = optional(string)
-    multi_az                              = optional(bool)
+    dedicated_log_volume                  = optional(bool)
+    create_db_subnet_group                = optional(bool)
+    db_subnet_group_name                  = optional(string)
+    db_subnet_group_description           = optional(string)
+    vpc_key                               = optional(string)
     network_type                          = optional(string)
-    performance_insights_enabled          = optional(bool)
-    performance_insights_kms_key_id       = optional(string)
-    performance_insights_retention_period = optional(number)
-    port                                  = optional(number)
     publicly_accessible                   = optional(bool)
     sg_key                                = optional(string)
-    storage_encrypted                     = optional(bool)
-    storage_type                          = optional(string)
+    ca_cert_identifier                    = optional(string)
+    port                                  = optional(number)
     tags                                  = optional(map(string))
-    username                              = optional(string)
-    vpc_key                               = optional(string)
+    iam_database_authentication_enabled   = optional(bool)
+    create_monitoring_role                = optional(bool)
+    monitoring_role_name                  = optional(string)
+    monitoring_role_description           = optional(string)
+    performance_insights_enabled          = optional(bool)
+    performance_insights_retention_period = optional(number)
+    performance_insights_kms_key_id       = optional(string)
+    monitoring_interval                   = optional(number)
+    create_cloudwatch_log_group           = optional(bool)
+    enabled_cloudwatch_logs_exports       = optional(list(string))
+    db_name                               = optional(string)
+    family                                = optional(string)
+    major_engine_version                  = optional(string)
+    backup_retention_period               = optional(number)
+    backup_window                         = optional(string)
+    copy_tags_to_snapshot                 = optional(bool)
+    storage_encrypted                     = optional(bool)
+    kms_key_id                            = optional(string)
+    auto_minor_version_upgrade            = optional(bool)
+    maintenance_window                    = optional(string)
+    deletion_protection                   = optional(bool)
   }))
   default = {}
 }
@@ -220,13 +231,16 @@ variable "namespaces" {
 variable "ecs_clusters" {
   description = "Map of ECS Cluster configurations"
   type = map(object({
+    kms_key_id                         = optional(string)
     cluster_name                       = optional(string)
     default_capacity_provider_strategy = optional(map(any))
     cluster_setting                    = optional(list(map(string)))
     cluster_configuration              = optional(map(any))
+    cluster_tags                       = optional(map(string))
     services                           = optional(map(any))
     tags                               = optional(map(string))
   }))
   default = {}
 }
+
 

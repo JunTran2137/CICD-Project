@@ -10,28 +10,16 @@ inputs:
   environment:
     description: 'Deployment environment'
     required: true
-    default: 'development'
 
   aws-region: 
     description: 'AWS Region'
     required: true
-    default: 'us-east-1'
-
-
+    default: 'ap-southeast-2'
 
 outputs:
   ecr_repository:
     description: 'ECR Repository Name'
     value: ${{ steps.apply.outputs.ecr_repository }}
-  ecs_cluster:
-    description: 'ECS Cluster Name'
-    value: ${{ steps.apply.outputs.ecs_cluster }}
-  ecs_service:
-    description: 'ECS Service Name'
-    value: ${{ steps.apply.outputs.ecs_service }}
-  task_definition:
-    description: 'Task Definition Name'
-    value: ${{ steps.apply.outputs.task_definition }}
 
 runs:
   using: "composite"
