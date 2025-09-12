@@ -237,7 +237,7 @@ variable "ecs_clusters" {
     cluster_setting                    = optional(list(map(string)))
     cluster_configuration              = optional(map(any))
     cluster_tags                       = optional(map(string))
-    services                           = optional(map(any))
+    services                           = optional(any)
     tags                               = optional(map(string))
   }))
   default = {}

@@ -41,6 +41,9 @@ module "sg" {
   ingress_cidr_blocks = try(each.value.ingress_cidr_blocks, [])
   ingress_rules       = try(coalesce(each.value.ingress_rules, []), [])
 
+  egress_cidr_blocks = try(each.value.egress_cidr_blocks, [])
+  egress_rules       = try(coalesce(each.value.egress_rules, []), [])
+
   tags = try(merge(each.value.tags, var.environment_tags ), {})
 }
 
@@ -283,50 +286,67 @@ module "ecs" {
 
   for_each = var.ecs_clusters
 
-  cluster_name = each.value.cluster_name
+  cluster_name = try(each.value.cluster_name, null)
 
-  cluster_service_connect_defaults = {
+  cluster_service_connect_defaults = try({
     namespace = aws_service_discovery_http_namespace.this[each.key].arn
-  }
+  }, null)
 
-  default_capacity_provider_strategy = each.value.default_capacity_provider_strategy
-  cluster_setting                    = each.value.cluster_setting
+  default_capacity_provider_strategy = try(each.value.default_capacity_provider_strategy, {})
+  cluster_setting                    = try(each.value.cluster_setting, [])
 
-  cluster_configuration = merge(each.value.cluster_configuration, {
-    execute_command_configuration = merge(each.value.cluster_configuration.execute_command_configuration, {
-      kms_key_id = data.aws_kms_key.ecs[each.key].arn
-    })
+  cluster_configuration = try(merge(each.value.cluster_configuration, {
+    execute_command_configuration = try(merge(each.value.cluster_configuration.execute_command_configuration, {
+      kms_key_id = try(data.aws_kms_key.ecs[each.key].arn, null)
+    }), {})
+  }), {})
 
-    # managed_storage_configuration = {
-    #   kms_key_id                           = data.aws_kms_key.ecs[each.key].arn
-    #   fargate_ephemeral_storage_kms_key_id = data.aws_kms_key.ecs[each.key].arn
-    # }
-  })
-
-  services = {
+  services = try({
     for k, v in each.value.services : k => merge(v, {
       task_exec_secret_arns = try([module.rds[v.rds_key].db_instance_master_user_secret_arn], [])
 
-      container_definitions = {
+      container_definitions = try({
         for k1, v1 in v.container_definitions : k1 => merge(v1, {
           image = try("${module.ecr[v1.ecr_key].repository_url}:latest", null)
+
+          environment = v1.connect_db == true ? try([
+            {
+              name  = "DB_HOST"
+              value = module.rds[v.rds_key].db_instance_endpoint
+            },
+            {
+              name  = "DB_NAME"
+              value = module.rds[v.rds_key].db_instance_name
+            }
+          ], []) : []
+
+          secrets = v1.connect_db == true ? try([
+            {
+              name      = "DB_PASSWORD"
+              valueFrom = "${module.rds[v.rds_key].db_instance_master_user_secret_arn}:password::"
+            },
+            {
+              name      = "DB_USERNAME" 
+              valueFrom = "${module.rds[v.rds_key].db_instance_master_user_secret_arn}:username::"
+            }
+          ], []) : []
         })
-      }
+      }, {})
 
-      subnet_ids = module.vpc[v.vpc_key].private_subnets
-      security_group_ids = [module.sg[v.sg_key].security_group_id]
+      subnet_ids = try(module.vpc[v.vpc_key].private_subnets, [])
+      security_group_ids = try([module.sg[v.sg_key].security_group_id], [])
 
-      service_connect_configuration = merge(v.service_connect_configuration, {
-        namespace = aws_service_discovery_http_namespace.this[each.key].arn
-      })
+      service_connect_configuration = try(merge(v.service_connect_configuration, {
+        namespace = try(aws_service_discovery_http_namespace.this[each.key].arn, null)
+      }), {})
 
-      load_balancer = {
+      load_balancer = try({
         for k1, v1 in v.load_balancer : k1 => merge(v1, {
-          target_group_arn = module.alb[v1.alb_key].target_groups[v1.target_group_key].arn
+          target_group_arn = try(module.alb[v1.alb_key].target_groups[v1.target_group_key].arn, null)
         })
-      }
+      }, {})
     })
-  }
+  }, {})
 
-  tags = try(merge(each.value.tags, var.environment_tags ), {})
+  tags = try(merge(each.value.tags, var.environment_tags), {})
 }

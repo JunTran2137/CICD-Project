@@ -7,6 +7,10 @@ inputs:
     required: true
     default: './infra'
 
+  environment:
+    description: 'Deployment environment'
+    required: true
+
   aws-region: 
     description: 'AWS Region'
     required: true
@@ -28,6 +32,9 @@ runs:
   steps:
     - name: Checkout
       uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -52,21 +59,16 @@ runs:
       working-directory: ${{ inputs.working-directory }}
 
     - name: Terraform Apply
-      id: apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: |
-        terraform apply -auto-approve -input=false
-        echo "ecr_repository=$(terraform output -raw ecr_repository_name)" >> $GITHUB_OUTPUT
-        echo "ecs_cluster=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
-        echo "ecs_service=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
-        echo "task_definition=$(terraform output -raw task_definition_name)" >> $GITHUB_OUTPUT
+      run: terraform apply -auto-approve -input=false
       shell: bash
       working-directory: ${{ inputs.working-directory }}
 
     - name: Set Outputs
+      id: outputs
       run: |
-        echo "ecr_repository=${{ steps.apply.outputs.ecr_repository }}" >> $GITHUB_OUTPUT
-        echo "ecs_cluster=${{ steps.apply.outputs.ecs_cluster }}" >> $GITHUB_OUTPUT
-        echo "ecs_service=${{ steps.apply.outputs.ecs_service }}" >> $GITHUB_OUTPUT
-        echo "task_definition=${{ steps.apply.outputs.task_definition }}" >> $GITHUB_OUTPUT
+        echo "ecs_cluster=$(terraform output -json ecs_cluster_name | jq -r .ecs_cluster)" >> $GITHUB_OUTPUT
+        echo "ecs_service=$(terraform output -json ecs_service_name | jq -r .ecs_service)" >> $GITHUB_OUTPUT
+        echo "task_definition=$(terraform output -json task_definition_name | jq -r .task_definition)" >> $GITHUB_OUTPUT
       shell: bash
+      working-directory: ${{ inputs.working-directory }}

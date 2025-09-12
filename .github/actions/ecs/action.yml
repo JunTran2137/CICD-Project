@@ -5,7 +5,7 @@ inputs:
   aws-region:
     description: "AWS region (e.g. us-west-1)"
     required: true
-  ecr-repository:
+  ecr-repo:
     description: "Amazon ECR repository name"
     required: true
   ecs-service:

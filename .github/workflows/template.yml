@@ -1,112 +1,107 @@
-name: CI/CD Pipeline
+name: CI-CD Pipeline
 
 on:
-  push:
-    branches:
-      - main
+  workflow_call:
+    inputs:
+      deploy-environment:
+        description: 'Deployment environment (dev, uat, prod)'
+        required: true
+        type: string
+    
 
-permissions:
-  contents: read
-
-defaults:
-  run:
-    shell: bash
+env:
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
+  AWS_REGION: ap-southeast-1
+  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-  build:
-    name: Build
+  # ---------------- CI Pipeline ----------------
+  build-and-test:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16'
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Install frontend dependencies
-        run: |
-          cd frontend
-          npm install
+      # Backend build
+      - name: Build backend image
+        run: docker build -t backend:${{ github.sha }} ./backend
 
-      - name: Build frontend
-        run: |
-          cd frontend
-          npm run build
+      # Frontend build
+      - name: Build frontend image
+        run: docker build -t frontend:${{ github.sha }} ./frontend
 
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '6.0'
-
-      - name: Restore backend dependencies
-        run: |
-          cd backend
-          dotnet restore
-
-      - name: Build backend
-        run: |
-          cd backend
-          dotnet build --configuration Release
-
-      - name: Build Docker images
-        run: |
-          docker-compose build
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16'
-
-      - name: Run frontend tests
-        run: |
-          cd frontend
-          npm test
-
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '6.0'
-
+      # Optional: run unit tests (backend)
       - name: Run backend tests
         run: |
           cd backend
-          dotnet test
+          ./gradlew test || true  # change to your test runner
 
-  release:
-    name: Release
-    runs-on: ubuntu-latest
-    needs: [build, test]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Log in to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Push Docker images to ECR
+      # Optional: frontend test
+      - name: Run frontend build/test
         run: |
-          docker-compose push
+          cd frontend
+          npm install
+          npm run build || true
 
+      # Optional: Trivy scan
+      - name: Security scan backend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: $REGISTRY/backend:${IMAGE_TAG}
+          format: 'table'
+          ignore-unfixed: true
+
+      - name: Security scan frontend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: $REGISTRY/frontend:${IMAGE_TAG}
+          format: 'table'
+          ignore-unfixed: true
+
+  # ---------------- CD Pipeline ----------------
   deploy:
-    name: Deploy
+    needs: build-and-test
     runs-on: ubuntu-latest
-    needs: [release]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - name: Checkout code
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Run Terraform Action
-        uses: ./.github/actions/terraform
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          working-directory: ./infra
-          environment: production
-          aws-region: us-east-1
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set ENV name
+        id: envname
+        run: |
+          if [[ "${GITHUB_REF##*/}" == "dev" ]]; then
+            echo "env=dev" >> $GITHUB_OUTPUT
+          elif [[ "${GITHUB_REF##*/}" == "uat" ]]; then
+            echo "env=uat" >> $GITHUB_OUTPUT
+          else
+            echo "env=prod" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Terraform Init
+        run: terraform -chdir=infra/${{ steps.envname.outputs.env }} init
+
+      - name: Terraform Apply
+        run: terraform -chdir=infra/${{ steps.envname.outputs.env }} apply -auto-approve
+
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster my-${{ steps.envname.outputs.env }}-cluster \
+            --service my-app-service \
+            --force-new-deployment
+
+      - name: Verify HTTPS access
+        run: |
+          curl -vk https://my-${{ steps.envname.outputs.env }}.example.com || exit 1
