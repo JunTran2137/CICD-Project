@@ -3,105 +3,122 @@ name: CI-CD Pipeline
 on:
   workflow_call:
     inputs:
-      deploy-environment:
-        description: 'Deployment environment (dev, uat, prod)'
+      environment:
+        description: 'Environment (dev, uat, prod)'
         required: true
         type: string
-    
+        default: 'dev'
+      aws-region:
+        description: 'AWS Region'
+        required: false
+        type: string
+        default: 'ap-southeast-2'
 
-env:
-  REGISTRY: ghcr.io/${{ github.repository_owner }}
-  AWS_REGION: ap-southeast-1
-  IMAGE_TAG: ${{ github.sha }}
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        description: 'AWS Access Key ID'
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        description: 'AWS Secret Access Key'
+        required: true
 
 jobs:
-  # ---------------- CI Pipeline ----------------
-  build-and-test:
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/dev'
-    runs-on: ubuntu-latest
+  # CI Pipeline
+  ci-pipeline:
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
     steps:
-      - name: Checkout source
+      - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # Backend build
-      - name: Build backend image
-        run: docker build -t backend:${{ github.sha }} ./backend
-
-      # Frontend build
-      - name: Build frontend image
-        run: docker build -t frontend:${{ github.sha }} ./frontend
-
-      # Optional: run unit tests (backend)
-      - name: Run backend tests
-        run: |
-          cd backend
-          ./gradlew test || true  # change to your test runner
-
-      # Optional: frontend test
-      - name: Run frontend build/test
-        run: |
-          cd frontend
-          npm install
-          npm run build || true
-
-      # Optional: Trivy scan
-      - name: Security scan backend image
-        uses: aquasecurity/trivy-action@master
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
         with:
-          image-ref: $REGISTRY/backend:${IMAGE_TAG}
-          format: 'table'
-          ignore-unfixed: true
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ inputs.aws-region }}
 
-      - name: Security scan frontend image
-        uses: aquasecurity/trivy-action@master
+      # # Unit Test Backend
+      # - name: Setup .NET
+      #   uses: actions/setup-dotnet@v3
+
+      # - name: Restore backend dependencies
+      #   run: dotnet restore ./backend/YourBackendProject.csproj
+
+      # - name: Build backend
+      #   run: dotnet build ./backend/YourBackendProject.csproj --configuration Release --no-restore
+
+      # - name: Run backend unit tests
+      #   run: dotnet test ./backend/YourBackendProject.Tests/YourBackendProject.Tests.csproj --no-build --verbosity normal
+
+      # # Unit Test Frontend
+      # - name: Setup Node.js
+      #   uses: actions/setup-node@v3
+      #   with:
+      #     node-version: '20.x'
+
+      # - name: Install frontend dependencies
+      #   run: |
+      #     cd frontend
+      #     npm install
+
+      # - name: Run frontend unit tests
+      #   run: |
+      #     cd frontend
+      #     npm test -- --watchAll=false --ci
+
+      - name: Terraform Module ECR
+        uses: ./.github/actions/terraform_ecr
         with:
-          image-ref: $REGISTRY/frontend:${IMAGE_TAG}
-          format: 'table'
-          ignore-unfixed: true
+          environment: ${{ inputs.environment }}
 
-  # ---------------- CD Pipeline ----------------
-  deploy:
-    needs: build-and-test
-    runs-on: ubuntu-latest
+      - name: Build and Push Frontend Docker Image to ECR
+        id: build-frontend-image
+        uses: ./.github/actions/ecr
+        with:
+          ecr-repo: cicd-lab-frontend-repo
+
+      - name: Build and Push Backend Docker Image to ECR
+        id: build-backend-image
+        uses: ./.github/actions/ecr
+        with:
+          ecr-repo: cicd-lab-backend-repo
+    
+    outputs:
+      ecr-frontend-image: ${{ steps.build-frontend-image.outputs.image }}
+      ecr-backend-image: ${{ steps.build-backend-image.outputs.image }}
+
+  # CD Pipeline 
+  cd-pipeline:
+    needs: ci-pipeline
+    runs-on: ubuntu-22.04
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ inputs.aws-region }}
 
-      - name: Set ENV name
-        id: envname
-        run: |
-          if [[ "${GITHUB_REF##*/}" == "dev" ]]; then
-            echo "env=dev" >> $GITHUB_OUTPUT
-          elif [[ "${GITHUB_REF##*/}" == "uat" ]]; then
-            echo "env=uat" >> $GITHUB_OUTPUT
-          else
-            echo "env=prod" >> $GITHUB_OUTPUT
-          fi
+      - name: Terraform Module ECS Frontend
+        uses: ./.github/actions/terraform_ecs
+        with:
+          environment: ${{ inputs.environment }}
 
-      - name: Terraform Init
-        run: terraform -chdir=infra/${{ steps.envname.outputs.env }} init
+      - name: Deploy Frontend to ECS
+        uses: ./.github/actions/ecs
+        with:
+          image: ${{ needs.ci-pipeline.outputs.ecr-frontend-image }}
 
-      - name: Terraform Apply
-        run: terraform -chdir=infra/${{ steps.envname.outputs.env }} apply -auto-approve
-
-      - name: Deploy to ECS
-        run: |
-          aws ecs update-service \
-            --cluster my-${{ steps.envname.outputs.env }}-cluster \
-            --service my-app-service \
-            --force-new-deployment
-
-      - name: Verify HTTPS access
-        run: |
-          curl -vk https://my-${{ steps.envname.outputs.env }}.example.com || exit 1
+      - name: Deploy Backend to ECS
+        uses: ./.github/actions/ecs
+        with:
+          image: ${{ needs.ci-pipeline.outputs.ecr-backend-image }}
+          ecs-service: cicd-lab-backend-service
+          ecs-cluster: cicd-lab-cluster
+          ecs-task-definition: cicd-lab-backend-task
+          container-name: backend-container

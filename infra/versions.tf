@@ -10,9 +10,9 @@ terraform {
 
   backend "s3" {
     bucket         = "dungtt112-tf-backend-bucket"
-    key            = "state/prod/terraform.tfstate"
+    key            = "state/dev/terraform.tfstate"
     region         = "ap-southeast-2"
-    use_lockfile   = true
+    use_lockfile   = false
   }
 }
 

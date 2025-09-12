@@ -2,65 +2,36 @@ name: 'Terraform Action'
 description: 'Reusable GitHub Action for Terraform operations'
 
 inputs:
-  working-directory:
-    description: 'Terraform working directory'
-    required: true
-    default: './infra'
-
   environment:
-    description: 'Deployment environment'
+    description: 'Environment'
     required: true
-
-  aws-region: 
-    description: 'AWS Region'
-    required: true
-    default: 'ap-southeast-2'
-
-outputs:
-  ecr_repository:
-    description: 'ECR Repository Name'
-    value: ${{ steps.outputs.outputs.ecr_repo }}
 
 runs:
   using: "composite"
   steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v1
-
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ inputs.aws-region }}
-
     - name: Terraform Init
-      run: terraform init
+      run: terraform init -backend-config="key=state/${{ inputs.environment }}/terraform.tfstate"
       shell: bash
-      working-directory: ${{ inputs.working-directory }}
+      working-directory: './infra'
 
     - name: Terraform Format
       run: terraform fmt -check
       shell: bash
-      working-directory: ${{ inputs.working-directory }}
+      working-directory: './infra'
+
+    - name: Download variables file
+      run: aws s3 cp s3://dungtt112-tf-backend-bucket/vars/${{ inputs.environment }}/terraform.tfvars .
+      shell: bash
+      working-directory: './infra'
 
     - name: Terraform Plan
       run: terraform plan -input=false
       shell: bash
-      working-directory: ${{ inputs.working-directory }}
+      working-directory: './infra'
 
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: terraform apply -auto-approve -target="module.ecr" -input=false
+      run: terraform apply -auto-approve -input=false -target="module.ecr"
       shell: bash
-      working-directory: ${{ inputs.working-directory }}
-
-    - name: Set Outputs
-      id: outputs
-      run: echo "ecr_repo=$(terraform output -json ecr_repo_url | jq -r .ecr_repository_1)" >> $GITHUB_OUTPUT
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
+      working-directory: './infra'
 

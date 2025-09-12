@@ -1,0 +1,29 @@
+name: Deploy to Amazon ECR
+description: 'Deploy a container to Amazon ECR'
+
+inputs:
+  ecr-repo:
+    description: "Amazon ECR repository name"
+    required: true
+
+outputs:
+  image:
+    description: "Docker image URI"
+    value: ${{ steps.build-image.outputs.image }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      shell: bash
+      run: |
+        docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repo }}:latest .
+        docker push ${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repo }}:latest
+        echo "image=${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repo }}:latest" >> $GITHUB_OUTPUT
+
+
