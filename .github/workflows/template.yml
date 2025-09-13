@@ -38,7 +38,7 @@ jobs:
         uses: ./.github/actions/test_backend
 
       - name: Sonar Analysis
-        uses: ./.github/actions/sonars
+        uses: ./.github/actions/sonar
         with:
           project-key: JunTran2137_CICD-Project
           organization: juntran2137
