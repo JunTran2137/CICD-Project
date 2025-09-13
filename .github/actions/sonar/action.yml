@@ -8,6 +8,9 @@ inputs:
   organization:
     description: 'SonarCloud organization'
     required: false
+  sonar-token:
+    description: 'Sonar token'
+    required: false
 
 runs:
   using: "composite"
@@ -19,12 +22,12 @@ runs:
     - name: SonarQube Scan
       uses: SonarSource/sonarqube-scan-action@v5
       env:
-        SONAR_TOKEN: $SONAR_TOKEN
+        SONAR_TOKEN: ${{ inputs.sonar-token }}
 
     - name: Analyze with SonarCloud
       uses: SonarSource/sonarcloud-github-action@v2.2.0
       env:
-        SONAR_TOKEN: $SONAR_TOKEN 
+        SONAR_TOKEN: ${{ inputs.sonar-token }}
       with:
         args:
           -Dsonar.projectKey=${{ inputs.project-key }}
