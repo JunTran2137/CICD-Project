@@ -1,29 +1,36 @@
-name: Deploy to Amazon ECR
-description: 'Deploy a container to Amazon ECR'
+name: CI Pipeline
+description: 'CI Pipeline for building, testing, and pushing Docker images to ECR'
 
 inputs:
   ecr-repo:
-    description: "Amazon ECR repository name"
+    description: 'ECR Repository URL'
     required: true
+  working-directory:
+    description: 'Working directory'
+    required: false
 
 outputs:
   image:
-    description: "Docker image URI"
-    value: ${{ steps.build-image.outputs.image }}
+    description: 'Docker image with tag'
+    value: ${{ steps.image.outputs.image }}
 
 runs:
   using: "composite"
   steps:
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-
-    - name: Build, tag, and push image to Amazon ECR
-      id: build-image
+    - name: Build, tag image
+      id: image
       shell: bash
       run: |
-        docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repo }}:latest .
-        docker push ${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repo }}:latest
-        echo "image=${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr-repo }}:latest" >> $GITHUB_OUTPUT
+        docker build -t ${{ inputs.ecr-repo }}:latest .
+        echo "image=${{ inputs.ecr-repo }}:latest" >> $GITHUB_OUTPUT
+      working-directory: ${{ inputs.working-directory }}
 
+    - name: Test image
+      uses: ./.github/actions/trivy
+      with:
+        image-ref: ${{ steps.image.outputs.image}}
 
+    - name: Push image to Amazon ECR
+      shell: bash
+      run: docker push ${{ steps.image.outputs.image }}
+        

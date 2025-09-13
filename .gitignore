@@ -1,4 +1,4 @@
 .amazonq/
 .terraform/
 *.tfvars
-terraform.tfstate
+terraform.yaml

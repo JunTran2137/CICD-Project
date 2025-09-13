@@ -25,12 +25,27 @@ on:
 jobs:
   # CI Pipeline
   ci-pipeline:
-    if: github.ref == 'refs/heads/dev' && github.event_name == 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
+      - name: Test Backend
+        uses: ./.github/actions/test_backend
+
+      - name: Test Frontend
+        uses: ./.github/actions/test_frontend
+
+      # - name: Sonar Analysis
+      #   uses: ./.github/actions/sonar
+      #   with:
+      #     sonar-token: ${{ secrets.SONAR_TOKEN }}
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     project-key: cicd-lab
+      #     organization: dungtt112-github
+      #     project-base-dir: './'
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -38,87 +53,65 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ inputs.aws-region }}
 
-      # # Unit Test Backend
-      # - name: Setup .NET
-      #   uses: actions/setup-dotnet@v3
-
-      # - name: Restore backend dependencies
-      #   run: dotnet restore ./backend/YourBackendProject.csproj
-
-      # - name: Build backend
-      #   run: dotnet build ./backend/YourBackendProject.csproj --configuration Release --no-restore
-
-      # - name: Run backend unit tests
-      #   run: dotnet test ./backend/YourBackendProject.Tests/YourBackendProject.Tests.csproj --no-build --verbosity normal
-
-      # # Unit Test Frontend
-      # - name: Setup Node.js
-      #   uses: actions/setup-node@v3
-      #   with:
-      #     node-version: '20.x'
-
-      # - name: Install frontend dependencies
-      #   run: |
-      #     cd frontend
-      #     npm install
-
-      # - name: Run frontend unit tests
-      #   run: |
-      #     cd frontend
-      #     npm test -- --watchAll=false --ci
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
       - name: Terraform Module ECR
+        id: ecr-repo
         uses: ./.github/actions/terraform_ecr
         with:
           environment: ${{ inputs.environment }}
 
-      - name: Build and Push Frontend Docker Image to ECR
-        id: build-frontend-image
+      - name: Build and Push Frontend Image to ECR
+        id: frontend-image
         uses: ./.github/actions/ecr
         with:
-          ecr-repo: cicd-lab-frontend-repo
+          ecr-repo: ${{ steps.ecr-repo.outputs.ecr-frontend-repo }}
+          working-directory: './frontend'
 
-      - name: Build and Push Backend Docker Image to ECR
-        id: build-backend-image
+      - name: Build and Push Backend Image to ECR
+        id: backend-image
         uses: ./.github/actions/ecr
         with:
-          ecr-repo: cicd-lab-backend-repo
-    
+          ecr-repo: ${{ steps.ecr-repo.outputs.ecr-backend-repo }}
+          working-directory: './backend'
+
     outputs:
-      ecr-frontend-image: ${{ steps.build-frontend-image.outputs.image }}
-      ecr-backend-image: ${{ steps.build-backend-image.outputs.image }}
+      frontend-image: ${{ steps.frontend-image.outputs.image }}
+      backend-image: ${{ steps.backend-image.outputs.image }}
 
   # CD Pipeline 
-  cd-pipeline:
-    needs: ci-pipeline
-    runs-on: ubuntu-22.04
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+  # cd-pipeline:
+  #   needs: ci-pipeline
+  #   runs-on: ubuntu-22.04
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   steps:
+  #     - name: Checkout source
+  #       uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ inputs.aws-region }}
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v1
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: ${{ inputs.aws-region }}
 
-      - name: Terraform Module ECS Frontend
-        uses: ./.github/actions/terraform_ecs
-        with:
-          environment: ${{ inputs.environment }}
+  #     - name: Terraform Module ECS Frontend
+  #       uses: ./.github/actions/terraform_ecs
+  #       with:
+  #         environment: ${{ inputs.environment }}
 
-      - name: Deploy Frontend to ECS
-        uses: ./.github/actions/ecs
-        with:
-          image: ${{ needs.ci-pipeline.outputs.ecr-frontend-image }}
+  #     - name: Deploy Frontend to ECS
+  #       uses: ./.github/actions/ecs
+  #       with:
+  #         image: ${{ needs.ci-pipeline.outputs.ecr-frontend-image }}
 
-      - name: Deploy Backend to ECS
-        uses: ./.github/actions/ecs
-        with:
-          image: ${{ needs.ci-pipeline.outputs.ecr-backend-image }}
-          ecs-service: cicd-lab-backend-service
-          ecs-cluster: cicd-lab-cluster
-          ecs-task-definition: cicd-lab-backend-task
-          container-name: backend-container
+  #     - name: Deploy Backend to ECS
+  #       uses: ./.github/actions/ecs
+  #       with:
+  #         image: ${{ needs.ci-pipeline.outputs.ecr-backend-image }}
+  #         ecs-service: cicd-lab-backend-service
+  #         ecs-cluster: cicd-lab-cluster
+  #         ecs-task-definition: cicd-lab-backend-task
+  #         container-name: backend-container

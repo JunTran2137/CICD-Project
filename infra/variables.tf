@@ -2,7 +2,7 @@ variable "environment_tags" {
   description = "Deployment environment"
   type        = map(string)
   default     = {
-    Environment = "n/a"
+    Environment = "dev"
   }
 }
 

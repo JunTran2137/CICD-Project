@@ -1,3 +1,8 @@
+output "ecr_repo" {
+  description = "ECR Repository URL"
+  value       = {for k, v in module.ecr : k => v.repository_url}
+}
+
 # output "ecs_service_name" {
 #   description = "ECS Service Name"
 #   value       = {for k, v in module.ecs : k => values({for k1, v1 in v.services : k1 => v1.name})}

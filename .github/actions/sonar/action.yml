@@ -25,16 +25,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Analyze with SonarQube
-      if: inputs.sonar-host-url != ''
-      uses: SonarSource/sonarqube-scan-action@7295e71c9583053f5bf40e9d4068a0c974603ec8
-      env:
-        GITHUB_TOKEN: ${{ inputs.github-token }}
-        SONAR_TOKEN: ${{ inputs.sonar-token }}
-        SONAR_HOST_URL: ${{ inputs.sonar-host-url }}
-      with:
-        args: -Dsonar.projectKey=${{ inputs.project-key }}
-
     - name: Analyze with SonarCloud
       if: inputs.sonar-host-url == ''
       uses: SonarSource/sonarcloud-github-action@4006f663ecaf1f8093e8e4abb9227f6041f52216
