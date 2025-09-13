@@ -8,6 +8,8 @@ on:
 jobs:
   cicd-pipeline:
     uses: ./.github/workflows/template.yml
+    permissions: 
+      security-events: write
     with:
       environment: dev
       aws-region: ap-southeast-2
