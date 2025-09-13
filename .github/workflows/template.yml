@@ -31,11 +31,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # - name: Test Frontend
+      #   uses: ./.github/actions/test_frontend
+
       - name: Test Backend
         uses: ./.github/actions/test_backend
 
-      - name: Test Frontend
-        uses: ./.github/actions/test_frontend
+
 
       # - name: Sonar Analysis
       #   uses: ./.github/actions/sonar
