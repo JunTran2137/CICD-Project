@@ -9,10 +9,10 @@ inputs:
 outputs:
   ecr-frontend-repo:
     description: 'ECR Frontend Repository URL'
-    value: ${{ steps.apply.outputs.ecr-frontend-repo }}
+    value: ${{ steps.outputs.outputs.ecr-frontend-repo }}
   ecr-backend-repo:
     description: 'ECR Backend Repository URL'
-    value: ${{ steps.apply.outputs.ecr-backend-repo }}
+    value: ${{ steps.outputs.outputs.ecr-backend-repo }}
 
 runs:
   using: "composite"
