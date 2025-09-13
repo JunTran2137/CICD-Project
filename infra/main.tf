@@ -28,7 +28,7 @@ module "vpc" {
   enable_dns_hostnames = try(each.value.enable_dns_hostnames, true)
   enable_dns_support   = try(each.value.enable_dns_support, true)
 
-  tags = try(merge(each.value.tags, var.environment_tags ), {})
+  tags = try(merge(each.value.tags, var.environment_tags), {})
 }
 
 ################################################################################
@@ -49,7 +49,7 @@ module "sg" {
   egress_cidr_blocks = try(each.value.egress_cidr_blocks, [])
   egress_rules       = try(coalesce(each.value.egress_rules, []), [])
 
-  tags = try(merge(each.value.tags, var.environment_tags ), {})
+  tags = try(merge(each.value.tags, var.environment_tags), {})
 }
 
 resource "aws_security_group_rule" "this" {
@@ -71,9 +71,9 @@ module "route53_zones" {
   source = "terraform-aws-modules/route53/aws//modules/zones"
 
   for_each = local.var.route53_zones
-  
+
   zones = try(each.value.zones, {})
-  tags  = try(merge(each.value.tags, var.environment_tags ), {})
+  tags  = try(merge(each.value.tags, var.environment_tags), {})
 }
 
 ################################################################################
@@ -91,7 +91,7 @@ module "acm" {
   key_algorithm             = try(each.value.key_algorithm, null)
   subject_alternative_names = try(["*.${values(module.route53_zones[each.value.zone_key].route53_zone_name)[0]}"], [])
 
-  tags = try(merge(each.value.tags, var.environment_tags ), {})
+  tags = try(merge(each.value.tags, var.environment_tags), {})
 }
 
 ################################################################################
@@ -117,14 +117,14 @@ module "alb" {
       certificate_arn = try(v.acm_key, null) != null ? module.acm[v.acm_key].acm_certificate_arn : null
     })
   }, {})
-  
+
   target_groups = try({
     for k, v in each.value.target_groups : k => merge(v, {
       vpc_id = module.vpc[v.vpc_key].vpc_id
     })
   }, {})
 
-  tags = try(merge(each.value.tags, var.environment_tags ), {})
+  tags = try(merge(each.value.tags, var.environment_tags), {})
 }
 
 ################################################################################
@@ -202,9 +202,9 @@ module "rds" {
   port                   = try(each.value.port, null)
 
   iam_database_authentication_enabled = try(each.value.iam_database_authentication_enabled, false)
-  create_monitoring_role      = try(each.value.create_monitoring_role, true)
-  monitoring_role_name        = try(each.value.monitoring_role_name, null)
-  monitoring_role_description = try(each.value.monitoring_role_description, null)
+  create_monitoring_role              = try(each.value.create_monitoring_role, true)
+  monitoring_role_name                = try(each.value.monitoring_role_name, null)
+  monitoring_role_description         = try(each.value.monitoring_role_description, null)
 
   performance_insights_enabled          = try(each.value.performance_insights_enabled, true)
   performance_insights_retention_period = try(each.value.performance_insights_retention_period, null)
@@ -227,7 +227,7 @@ module "rds" {
   maintenance_window         = try(each.value.maintenance_window, null)
   deletion_protection        = try(each.value.deletion_protection, false)
 
-  tags = try(merge(each.value.tags, var.environment_tags ), {})
+  tags = try(merge(each.value.tags, var.environment_tags), {})
 }
 
 ################################################################################
@@ -245,7 +245,7 @@ module "ecr" {
   repository_image_scan_on_push                    = try(each.value.repository_image_scan_on_push, true)
   repository_lifecycle_policy                      = try(jsonencode(each.value.repository_lifecycle_policy), null)
 
-  tags = try(merge(each.value.tags, var.environment_tags ), {})
+  tags = try(merge(each.value.tags, var.environment_tags), {})
 }
 
 ################################################################################
@@ -256,7 +256,7 @@ resource "aws_service_discovery_http_namespace" "this" {
 
   name        = try(each.value.name, null)
   description = try(each.value.description, null)
-  tags        = try(merge(each.value.tags, var.environment_tags ), {})
+  tags        = try(merge(each.value.tags, var.environment_tags), {})
 }
 
 data "aws_kms_key" "ecs" {
@@ -271,7 +271,7 @@ module "ecs" {
   for_each = local.var.ecs_clusters
 
   cluster_name                       = try(each.value.cluster_name, null)
-  cluster_service_connect_defaults   = try({namespace = aws_service_discovery_http_namespace.this[each.key].arn}, null)
+  cluster_service_connect_defaults   = try({ namespace = aws_service_discovery_http_namespace.this[each.key].arn }, null)
   default_capacity_provider_strategy = try(each.value.default_capacity_provider_strategy, {})
   cluster_setting                    = try(each.value.cluster_setting, [])
   cluster_tags                       = try(each.value.cluster_tags, {})
@@ -290,7 +290,7 @@ module "ecs" {
   services = try({
     for k, v in each.value.services : k => {
       family                   = try(v.family, null)
-      requires_compatibilities = try(v.requires_compatibilities, []) 
+      requires_compatibilities = try(v.requires_compatibilities, [])
       runtime_platform         = try(v.runtime_platform, {})
       network_mode             = try(v.network_mode, null)
       cpu                      = try(v.cpu, null)
@@ -317,22 +317,22 @@ module "ecs" {
           memoryReservation = try(v1.memoryReservation, null)
 
           secrets = try(v1.connect_db, false) == true ? try(concat(v1.secrets, [
-            { name      = "DB_PASSWORD"
-              valueFrom = try("${module.rds[v.rds_key].db_instance_master_user_secret_arn}:password::", null)},
-            { name      = "DB_USERNAME" 
-              valueFrom = try("${module.rds[v.rds_key].db_instance_master_user_secret_arn}:username::", null)}
+            { name = "DB_PASSWORD"
+            valueFrom = try("${module.rds[v.rds_key].db_instance_master_user_secret_arn}:password::", null) },
+            { name = "DB_USERNAME"
+            valueFrom = try("${module.rds[v.rds_key].db_instance_master_user_secret_arn}:username::", null) }
           ]), []) : []
 
           environment = try(v1.connect_db, false) == true ? try(concat(v1.environment, [
-            { name  = "DB_HOST"
-              value = try(module.rds[v.rds_key].db_instance_endpoint, null)},
-            { name  = "DB_NAME"
-              value = try(module.rds[v.rds_key].db_instance_name, null)}
+            { name = "DB_HOST"
+            value = try(module.rds[v.rds_key].db_instance_endpoint, null) },
+            { name = "DB_NAME"
+            value = try(module.rds[v.rds_key].db_instance_name, null) }
           ]), []) : []
-          
+
           environmentFiles = try(v1.environmentFiles, [])
           logConfiguration = try(v1.logConfiguration, {})
-          restartPolicy    = try(v1.restartPolicy, {}) 
+          restartPolicy    = try(v1.restartPolicy, {})
           healthCheck      = try(v1.healthCheck, null)
           startTimeout     = try(v1.startTimeout, null)
           stopTimeout      = try(v1.stopTimeout, null)
@@ -342,7 +342,7 @@ module "ecs" {
           workingDirectory = try(v1.workingDirectory, null)
           ulimits          = try(v1.ulimits, [])
           dockerLabels     = try(v1.dockerLabels, {})
-          
+
           mountPoints = try(v.mountPoints, [])
           volumesFrom = try(v.volumesFrom, [])
         }
@@ -389,7 +389,7 @@ module "ecs" {
       autoscaling_min_capacity = try(v.autoscaling_min_capacity, null)
       autoscaling_max_capacity = try(v.autoscaling_max_capacity, null)
       autoscaling_policies     = try(v.autoscaling_policies, {})
-      
+
       service_tags = try(v.service_tags, {})
       tags         = try(v.tags, {})
     }

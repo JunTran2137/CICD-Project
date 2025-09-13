@@ -1,7 +1,7 @@
 variable "environment_tags" {
   description = "Deployment environment"
   type        = map(string)
-  default     = {
+  default = {
     Environment = "dev"
   }
 }
@@ -125,11 +125,11 @@ variable "route53_records" {
   description = "Map of Route53 record configurations"
   type = map(object({
     zone_key = optional(string)
-    records  = optional(list(object({
+    records = optional(list(object({
       alb_key = optional(string)
-      name      = optional(string)
-      type      = optional(string)
-      alias     = optional(object({
+      name    = optional(string)
+      type    = optional(string)
+      alias = optional(object({
         name                   = optional(string)
         zone_id                = optional(string)
         evaluate_target_health = optional(bool)
@@ -201,16 +201,16 @@ variable "rds_databases" {
 variable "ecr_repositories" {
   description = "Map of ECR repository configurations"
   type = map(object({
-    repository_name                                  = optional(string)
-    repository_image_tag_mutability                  = optional(string)
+    repository_name                 = optional(string)
+    repository_image_tag_mutability = optional(string)
     repository_image_tag_mutability_exclusion_filter = optional(list(object({
       filter      = string
       filter_type = string
     })))
-    repository_encryption_type        = optional(string)
-    repository_image_scan_on_push     = optional(bool)
-    repository_lifecycle_policy       = optional(any)
-    tags                              = optional(map(string))
+    repository_encryption_type    = optional(string)
+    repository_image_scan_on_push = optional(bool)
+    repository_lifecycle_policy   = optional(any)
+    tags                          = optional(map(string))
   }))
   default = {}
 }
