@@ -21,6 +21,9 @@ on:
       AWS_SECRET_ACCESS_KEY:
         description: 'AWS Secret Access Key'
         required: true
+      SONAR_TOKEN:
+        description: 'SonarQube Token'
+        required: true
 
 jobs:
   # CI Pipeline
