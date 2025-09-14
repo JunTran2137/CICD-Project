@@ -1,5 +1,5 @@
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copy solution and project files
@@ -24,7 +24,7 @@ FROM build AS publish
 RUN dotnet publish "Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # Final stage
-FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
 # Copy published files from publish stage
