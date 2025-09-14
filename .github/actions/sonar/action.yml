@@ -8,28 +8,16 @@ inputs:
   organization:
     description: 'SonarCloud organization'
     required: false
-  sonar-token:
-    description: 'Sonar token'
-    required: false
 
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0 
-
-    - name: SonarQube Scan
-      uses: SonarSource/sonarqube-scan-action@v5
-      env:
-        SONAR_TOKEN: ${{ inputs.sonar-token }}
-
     - name: Analyze with SonarCloud
       uses: SonarSource/sonarcloud-github-action@v2.2.0
       env:
-        SONAR_TOKEN: ${{ inputs.sonar-token }}
+        SONAR_TOKEN: $SONAR_TOKEN 
       with:
         args:
           -Dsonar.projectKey=${{ inputs.project-key }}
           -Dsonar.organization=${{ inputs.organization }}
-        projectBaseDir: . 
+        projectBaseDir: .
