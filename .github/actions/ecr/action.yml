@@ -28,7 +28,7 @@ runs:
     - name: Test image
       uses: ./.github/actions/trivy
       with:
-        image-ref: ${{ steps.image.outputs.image }}
+        image-ref: ${{ steps.image.outputs.image}}
 
     - name: Push image to Amazon ECR
       shell: bash

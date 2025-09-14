@@ -2,43 +2,43 @@ name: Deploy to Amazon ECS
 description: 'Deploy a container to Amazon ECS service'
 
 inputs:
-  ecr-repo:
-    description: "Amazon ECR repository name"
-    required: true
-  ecs-service:
-    description: "Amazon ECS service name"
-    required: true
-  ecs-cluster:
+  cluster-name:
     description: "Amazon ECS cluster name"
     required: true
-  ecs-task-definition:
-    description: "Path to Amazon ECS task definition file"
+  service:
+    description: 'ECS Service JSON output from previous step'
     required: true
-  container-name:
-    description: "Name of the container in task definition"
+  image:
+    description: "Docker image to deploy"
     required: true
 
 runs:
   using: "composite"
   steps:
-    - name: Get ECS task definition
-      id: task-definition
-      shell: bash
+    - name: Set Outputs
+      id: outputs
       run: |
-        echo "task-definition=$(aws ecs describe-task-definition --task-definition ${{ inputs.ecs-task-definition }} --query taskDefinition --output json)" >> $GITHUB_OUTPUT
+        echo "service-name=$(${{ inputs.service }} | jq -r .service_name)" >> $GITHUB_OUTPUT
+    #     echo "task_definition=$(${{ inputs.service }} | jq -r .task_definition_arn)" >> $GITHUB_OUTPUT
+    #     echo "container-name=$(${{ inputs.service }} | jq -r .container_names)" >> $GITHUB_OUTPUT
+      shell: bash
 
-    - name: Fill in the new image ID in the Amazon ECS task definition
-      id: task-def
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: ${{ inputs.ecs-task-definition }}
-        container-name: ${{ inputs.container-name }}
-        image: ${{ steps.build-image.outputs.image }}
+    # - name: Fill in the new image ID in the Amazon ECS task definition
+    #   id: task-def
+    #   uses: aws-actions/amazon-ecs-render-task-definition@v1
+    #   with:
+    #     task-definition-arn: ${{ steps.outputs.outputs.task_definition }}
+    #     container-name: ${{ steps.outputs.outputs.container-name }}
+    #     image: ${{ inputs.image }}
 
-    - name: Deploy Amazon ECS task definition
-      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-      with:
-        task-definition: ${{ steps.task-def.outputs.task-definition }}
-        service: ${{ inputs.ecs-service }}
-        cluster: ${{ inputs.ecs-cluster }}
-        wait-for-service-stability: true
+    # - name: Deploy Amazon ECS task definition
+    #   uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+    #   with:
+    #     task-definition: ${{ steps.task-def.outputs.task-definition }}
+    #     service: ${{ steps.outputs.outputs.service-name }}
+    #     cluster: ${{ inputs.cluster-name }}
+    #     wait-for-service-stability: true
+    
+    - name: Force new deployment on Amazon ECS service
+      run: aws ecs update-service --cluster ${{ inputs.cluster-name }} --service ${{ steps.outputs.outputs.service-name }} --force-new-deployment
+      shell: bash

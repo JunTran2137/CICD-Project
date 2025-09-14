@@ -34,8 +34,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # - name: Test Frontend
-      #   uses: ./.github/actions/test_frontend
+      - name: Test Frontend
+        uses: ./.github/actions/test_frontend
 
       - name: Test Backend
         uses: ./.github/actions/test_backend
@@ -82,37 +82,38 @@ jobs:
       frontend-image: ${{ steps.frontend-image.outputs.image }}
       backend-image: ${{ steps.backend-image.outputs.image }}
 
-  # CD Pipeline 
-  # cd-pipeline:
-  #   needs: ci-pipeline
-  #   runs-on: ubuntu-22.04
-  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-  #   steps:
-  #     - name: Checkout source
-  #       uses: actions/checkout@v4
+# CD Pipeline 
+  cd-pipeline:
+    needs: ci-pipeline
+    runs-on: ubuntu-22.04
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-  #     - name: Configure AWS credentials
-  #       uses: aws-actions/configure-aws-credentials@v1
-  #       with:
-  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #         aws-region: ${{ inputs.aws-region }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ inputs.aws-region }}
 
-  #     - name: Terraform Module ECS Frontend
-  #       uses: ./.github/actions/terraform_ecs
-  #       with:
-  #         environment: ${{ inputs.environment }}
+      - name: Terraform Module ECS Frontend
+        id: terraform-ecs
+        uses: ./.github/actions/terraform_ecs
+        with:
+          environment: ${{ inputs.environment }}
 
-  #     - name: Deploy Frontend to ECS
-  #       uses: ./.github/actions/ecs
-  #       with:
-  #         image: ${{ needs.ci-pipeline.outputs.ecr-frontend-image }}
+      - name: Deploy Frontend to ECS
+        uses: ./.github/actions/ecs
+        with:
+          cluster-name: ${{ steps.terraform-ecs.outputs.cluster-name }}
+          service: ${{ steps.terraform-ecs.outputs.frontend-service }}
+          image: ${{ needs.ci-pipeline.outputs.frontend-image }}
 
-  #     - name: Deploy Backend to ECS
-  #       uses: ./.github/actions/ecs
-  #       with:
-  #         image: ${{ needs.ci-pipeline.outputs.ecr-backend-image }}
-  #         ecs-service: cicd-lab-backend-service
-  #         ecs-cluster: cicd-lab-cluster
-  #         ecs-task-definition: cicd-lab-backend-task
-  #         container-name: backend-container
+      - name: Deploy Backend to ECS
+        uses: ./.github/actions/ecs
+        with:
+          cluster-name: ${{ steps.terraform-ecs.outputs.cluster-name }}
+          service: ${{ steps.terraform-ecs.outputs.backend-service }}
+          image: ${{ needs.ci-pipeline.outputs.backend-image }}

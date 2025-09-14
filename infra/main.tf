@@ -388,7 +388,7 @@ module "ecs" {
       autoscaling_min_capacity = try(v.autoscaling_min_capacity, null)
       autoscaling_max_capacity = try(v.autoscaling_max_capacity, null)
       autoscaling_policies     = try(v.autoscaling_policies, {})
-
+      
       service_tags = try(v.service_tags, {})
       tags         = try(v.tags, {})
     }

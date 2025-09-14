@@ -7,15 +7,15 @@ inputs:
     required: true
 
 outputs:
-  ecs_cluster:
+  cluster-name:
     description: 'ECS Cluster Name'
-    value: ${{ steps.apply.outputs.ecs_cluster }}
-  ecs_service:
+    value: ${{ steps.outputs.outputs.cluster-name }}
+  frontend:
     description: 'ECS Service Name'
-    value: ${{ steps.apply.outputs.ecs_service }}
-  task_definition:
+    value: ${{ steps.outputs.outputs.frontend }}
+  backend:
     description: 'Task Definition Name'
-    value: ${{ steps.apply.outputs.task_definition }}
+    value: ${{ steps.outputs.outputs.backend }}
 
 runs:
   using: "composite"
@@ -49,8 +49,9 @@ runs:
     - name: Set Outputs
       id: outputs
       run: |
-        echo "ecs_cluster=$(terraform output -json ecs_cluster_name | jq -r .ecs_cluster)" >> $GITHUB_OUTPUT
-        echo "ecs_service=$(terraform output -json ecs_service_name | jq -r .ecs_service)" >> $GITHUB_OUTPUT
-        echo "task_definition=$(terraform output -json task_definition_name | jq -r .task_definition)" >> $GITHUB_OUTPUT
+        echo "cluster-name=$(terraform output -json ecs_info | jq -r .ecs_cluster_1.cluster_name)" >> $GITHUB_OUTPUT
+        echo "frontend=$(terraform output -json ecs_info | jq -r .ecs_cluster_1.services.service_1)" >> $GITHUB_OUTPUT
+        echo "backend=$(terraform output -json ecs_info | jq -r .ecs_cluster_1.services.service_2)" >> $GITHUB_OUTPUT
       shell: bash
       working-directory: './infra'
+
