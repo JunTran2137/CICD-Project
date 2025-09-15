@@ -38,10 +38,7 @@ if (string.IsNullOrWhiteSpace(connStr))
 }
 
 builder.Services.AddDbContext<DataContext>(options =>
-    options.UseMySql(
-        connStr,
-        ServerVersion.AutoDetect(connStr)
-    )
+    options.UseNpgsql(connStr);
 );
 
 var app = builder.Build();
