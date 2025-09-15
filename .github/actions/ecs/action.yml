@@ -18,9 +18,9 @@ runs:
     - name: Set Outputs
       id: outputs
       run: |
-        echo "service-name=$(${{ inputs.service }} | jq -r .service_name)" >> $GITHUB_OUTPUT
-    #     echo "task_definition=$(${{ inputs.service }} | jq -r .task_definition_arn)" >> $GITHUB_OUTPUT
-    #     echo "container-name=$(${{ inputs.service }} | jq -r .container_names)" >> $GITHUB_OUTPUT
+        echo "service-name=$(echo '${{ inputs.service }}' | jq -r '.service_name')" >> $GITHUB_OUTPUT
+    #     echo "task_definition=$(echo '${{ inputs.service }}' | jq -r '.task_definition_arn')" >> $GITHUB_OUTPUT
+    #     echo "container-name=$(echo '${{ inputs.service }}' | jq -r '.container_names')" >> $GITHUB_OUTPUT
       shell: bash
 
     # - name: Fill in the new image ID in the Amazon ECS task definition

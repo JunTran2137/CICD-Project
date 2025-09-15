@@ -49,9 +49,9 @@ runs:
     - name: Set Outputs
       id: outputs
       run: |
-        echo "cluster-name=$(terraform output -json ecs_info | jq -r .ecs_cluster_1.cluster_name)" >> $GITHUB_OUTPUT
-        echo "frontend=$(terraform output -json ecs_info | jq -c .ecs_cluster_1.services.service_1)" >> $GITHUB_OUTPUT
-        echo "backend=$(terraform output -json ecs_info | jq -c .ecs_cluster_1.services.service_2)" >> $GITHUB_OUTPUT
+        echo "cluster-name=$(terraform output -json ecs_info | jq -r '.ecs_cluster_1.cluster_name')" >> $GITHUB_OUTPUT
+        echo "frontend=$(terraform output -json ecs_info | jq -c '.ecs_cluster_1.services.service_1')" >> $GITHUB_OUTPUT
+        echo "backend=$(terraform output -json ecs_info | jq -c '.ecs_cluster_1.services.service_2')" >> $GITHUB_OUTPUT
       shell: bash
       working-directory: './infra'
 
