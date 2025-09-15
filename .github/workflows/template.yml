@@ -108,7 +108,7 @@ jobs:
         uses: ./.github/actions/ecs
         with:
           cluster-name: ${{ steps.terraform-ecs.outputs.cluster-name }}
-          service: ${{ steps.terraform-ecs.outputs.frontend-service }}
+          service: ${{ steps.terraform-ecs.outputs.frontend }}
           # image:  ${{ needs.ci-pipeline.outputs.frontend-image }}
           image: '551507900480.dkr.ecr.ap-southeast-2.amazonaws.com/cicd-lab-frontend-repo'
 
@@ -116,6 +116,6 @@ jobs:
         uses: ./.github/actions/ecs
         with:
           cluster-name: ${{ steps.terraform-ecs.outputs.cluster-name }}
-          service: ${{ steps.terraform-ecs.outputs.backend-service }}
+          service: ${{ steps.terraform-ecs.outputs.backend }}
           # image: ${{ needs.ci-pipeline.outputs.backend-image }}
           image: '551507900480.dkr.ecr.ap-southeast-2.amazonaws.com/cicd-lab-backend-repo'
