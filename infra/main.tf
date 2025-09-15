@@ -10,6 +10,8 @@ module "vpc" {
 
   for_each = local.var.vpcs
 
+  create_vpc = try(each.value.create, true)
+
   name             = try(each.value.name, null)
   cidr             = try(each.value.cidr, null)
   enable_ipv6      = try(each.value.enable_ipv6, false)
@@ -37,6 +39,8 @@ module "sg" {
   source = "terraform-aws-modules/security-group/aws"
 
   for_each = local.var.sgs
+
+  create = try(each.value.create, true)
 
   name        = try(each.value.name, null)
   description = try(each.value.description, null)
@@ -71,6 +75,8 @@ module "route53_zones" {
 
   for_each = local.var.route53_zones
 
+  create = try(each.value.create, true)
+
   zones = try(each.value.zones, {})
   tags  = try(merge(each.value.tags, var.environment_tags), {})
 }
@@ -83,7 +89,9 @@ module "acm" {
 
   for_each = local.var.acms
 
-  domain_name               = try(values(module.route53_zones[each.value.zone_key].route53_zone_name)[0], null)
+  create_certificate = try(each.value.create, true)
+
+  domain_name               = try(values(module.route53_zones[each.value.zone_key].route53_zone_name)[0], "")
   zone_id                   = try(values(module.route53_zones[each.value.zone_key].route53_zone_zone_id)[0], null)
   export                    = try(each.value.export, null)
   validation_method         = try(each.value.validation_method, null)
@@ -100,6 +108,8 @@ module "alb" {
   source = "terraform-aws-modules/alb/aws"
 
   for_each = local.var.albs
+
+  create = try(each.value.create, true)
 
   load_balancer_type    = try(each.value.load_balancer_type, null)
   name                  = try(each.value.name, null)
@@ -133,6 +143,8 @@ module "route53_records" {
   source = "terraform-aws-modules/route53/aws//modules/records"
 
   for_each = local.var.route53_records
+
+  create = try(each.value.create, true)
 
   zone_id = try(values(module.route53_zones[each.value.zone_key].route53_zone_zone_id)[0], null)
   records = try([
@@ -170,6 +182,8 @@ module "rds" {
   source = "terraform-aws-modules/rds/aws"
 
   for_each = local.var.rds_databases
+
+  create_db_instance = try(each.value.create, true)
 
   engine                   = try(each.value.engine, null)
   engine_version           = try(each.value.engine_version, null)
@@ -237,6 +251,8 @@ module "ecr" {
 
   for_each = local.var.ecr_repositories
 
+  create = try(each.value.create, true)
+
   repository_name                                  = try(each.value.repository_name, null)
   repository_image_tag_mutability                  = try(each.value.repository_image_tag_mutability, null)
   repository_image_tag_mutability_exclusion_filter = try(each.value.repository_image_tag_mutability_exclusion_filter, null)
@@ -268,6 +284,8 @@ module "ecs" {
   source = "terraform-aws-modules/ecs/aws"
 
   for_each = local.var.ecs_clusters
+
+  create = try(each.value.create, true)
 
   cluster_name                       = try(each.value.cluster_name, null)
   cluster_service_connect_defaults   = try({ namespace = aws_service_discovery_http_namespace.this[each.key].arn }, null)
@@ -320,14 +338,14 @@ module "ecs" {
             valueFrom = try("${module.rds[v.rds_key].db_instance_master_user_secret_arn}:password::", null) },
             { name = "DB_USERNAME"
             valueFrom = try("${module.rds[v.rds_key].db_instance_master_user_secret_arn}:username::", null) }
-          ]), []) : []
+          ]), []) : try(v1.secrets, [])
 
           environment = try(v1.connect_db, false) == true ? try(concat(v1.environment, [
             { name = "DB_HOST"
             value = try(module.rds[v.rds_key].db_instance_endpoint, null) },
             { name = "DB_NAME"
             value = try(module.rds[v.rds_key].db_instance_name, null) }
-          ]), []) : []
+          ]), []) : try(v1.environment, [])
 
           environmentFiles = try(v1.environmentFiles, [])
           logConfiguration = try(v1.logConfiguration, {})

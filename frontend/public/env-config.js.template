@@ -1,5 +1,0 @@
-// public/env-config.js.template
-window.__ENV__ = {
-  APP_API_HOST: "${APP_API_HOST}",
-  APP_API_PORT: "${APP_API_PORT}"
-};

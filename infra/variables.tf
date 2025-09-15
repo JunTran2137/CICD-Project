@@ -12,6 +12,7 @@ variable "environment_tags" {
 variable "vpcs" {
   description = "Map of VPC configurations"
   type = map(object({
+    create                 = optional(bool)
     name                   = optional(string)
     cidr                   = optional(string)
     enable_ipv6            = optional(bool)
@@ -69,7 +70,8 @@ variable "sg_rules" {
 variable "route53_zones" {
   description = "Map of Route53 zone configurations"
   type = map(object({
-    zones = optional(map(object({
+    create = optional(bool)
+    zones  = optional(map(object({
       domain_name = optional(string)
       comment     = optional(string)
       tags        = optional(map(string))
@@ -85,6 +87,7 @@ variable "route53_zones" {
 variable "acms" {
   description = "Map of ACM certificate configurations"
   type = map(object({
+    create                    = optional(bool)
     zone_key                  = optional(string)
     domain_name               = optional(string)
     zone_id                   = optional(string)
@@ -103,6 +106,7 @@ variable "acms" {
 variable "albs" {
   description = "Map of Application Load Balancer configurations"
   type = map(object({
+    create                = optional(bool)
     load_balancer_type    = optional(string)
     name                  = optional(string)
     internal              = optional(bool)
@@ -124,6 +128,7 @@ variable "albs" {
 variable "route53_records" {
   description = "Map of Route53 record configurations"
   type = map(object({
+    create   = optional(bool)
     zone_key = optional(string)
     records = optional(list(object({
       alb_key = optional(string)
@@ -145,6 +150,7 @@ variable "route53_records" {
 variable "rds_databases" {
   description = "Map of RDS database configurations"
   type = map(object({
+    create                                = optional(bool)
     engine                                = optional(string)
     engine_version                        = optional(string)
     engine_lifecycle_support              = optional(string)
@@ -201,6 +207,7 @@ variable "rds_databases" {
 variable "ecr_repositories" {
   description = "Map of ECR repository configurations"
   type = map(object({
+    create                          = optional(bool)
     repository_name                 = optional(string)
     repository_image_tag_mutability = optional(string)
     repository_image_tag_mutability_exclusion_filter = optional(list(object({
@@ -231,6 +238,7 @@ variable "namespaces" {
 variable "ecs_clusters" {
   description = "Map of ECS Cluster configurations"
   type = map(object({
+    create                             = optional(bool)
     kms_key_id                         = optional(string)
     cluster_name                       = optional(string)
     default_capacity_provider_strategy = optional(map(any))
