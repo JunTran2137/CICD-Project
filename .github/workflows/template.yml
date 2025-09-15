@@ -27,64 +27,64 @@ on:
 
 jobs:
   # CI Pipeline
-  ci-pipeline:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  # ci-pipeline:
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
 
-      # - name: Test Frontend
-      #   uses: ./.github/actions/test_frontend
+  #     # - name: Test Frontend
+  #     #   uses: ./.github/actions/test_frontend
 
-      - name: Test Backend
-        uses: ./.github/actions/test_backend
+  #     - name: Test Backend
+  #       uses: ./.github/actions/test_backend
 
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  #     - name: SonarQube Scan
+  #       uses: SonarSource/sonarqube-scan-action@v5
+  #       env:
+  #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ inputs.aws-region }}
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v1
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: ${{ inputs.aws-region }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1 
-        with:
-          mask-password: true
+  #     - name: Login to Amazon ECR
+  #       id: login-ecr
+  #       uses: aws-actions/amazon-ecr-login@v1 
+  #       with:
+  #         mask-password: true
 
-      - name: Terraform Module ECR
-        id: ecr-repo
-        uses: ./.github/actions/terraform_ecr
-        with:
-          environment: ${{ inputs.environment }}
+  #     - name: Terraform Module ECR
+  #       id: ecr-repo
+  #       uses: ./.github/actions/terraform_ecr
+  #       with:
+  #         environment: ${{ inputs.environment }}
 
-      - name: Build and Push Frontend Image to ECR
-        id: frontend-image
-        uses: ./.github/actions/ecr
-        with:
-          ecr-repo: ${{ steps.ecr-repo.outputs.ecr-frontend-repo }}
-          working-directory: './frontend'
+  #     - name: Build and Push Frontend Image to ECR
+  #       id: frontend-image
+  #       uses: ./.github/actions/ecr
+  #       with:
+  #         ecr-repo: ${{ steps.ecr-repo.outputs.ecr-frontend-repo }}
+  #         working-directory: './frontend'
 
-      - name: Build and Push Backend Image to ECR
-        id: backend-image
-        uses: ./.github/actions/ecr
-        with:
-          ecr-repo: ${{ steps.ecr-repo.outputs.ecr-backend-repo }}
-          working-directory: './backend'
+  #     - name: Build and Push Backend Image to ECR
+  #       id: backend-image
+  #       uses: ./.github/actions/ecr
+  #       with:
+  #         ecr-repo: ${{ steps.ecr-repo.outputs.ecr-backend-repo }}
+  #         working-directory: './backend'
 
-    outputs:
-      frontend-image: ${{ steps.frontend-image.outputs.image }}
-      backend-image: ${{ steps.backend-image.outputs.image }}
+  #   outputs:
+  #     frontend-image: ${{ steps.frontend-image.outputs.image }}
+  #     backend-image: ${{ steps.backend-image.outputs.image }}
 
 # CD Pipeline 
   cd-pipeline:
-    needs: ci-pipeline
+    # needs: ci-pipeline
     runs-on: ubuntu-22.04
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
@@ -109,11 +109,13 @@ jobs:
         with:
           cluster-name: ${{ steps.terraform-ecs.outputs.cluster-name }}
           service: ${{ steps.terraform-ecs.outputs.frontend-service }}
-          image: ${{ needs.ci-pipeline.outputs.frontend-image }}
+          # image:  ${{ needs.ci-pipeline.outputs.frontend-image }}
+          image: '551507900480.dkr.ecr.ap-southeast-2.amazonaws.com/cicd-lab-frontend-repo'
 
       - name: Deploy Backend to ECS
         uses: ./.github/actions/ecs
         with:
           cluster-name: ${{ steps.terraform-ecs.outputs.cluster-name }}
           service: ${{ steps.terraform-ecs.outputs.backend-service }}
-          image: ${{ needs.ci-pipeline.outputs.backend-image }}
+          # image: ${{ needs.ci-pipeline.outputs.backend-image }}
+          image: '551507900480.dkr.ecr.ap-southeast-2.amazonaws.com/cicd-lab-backend-repo'

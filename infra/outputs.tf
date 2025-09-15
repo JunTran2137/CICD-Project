@@ -13,7 +13,7 @@ output "ecs_info" {
         for k1, v1 in v.services : k1 => {
           service_name        = v1.name
           task_definition_arn = v1.task_definition_arn
-          container_names     = [for k2, v2 in v1.container_definitions : v2.container_definition.name]
+          container_names     = join(",", [for k2, v2 in v1.container_definitions : v2.container_definition.name])
         }
       }
     }
