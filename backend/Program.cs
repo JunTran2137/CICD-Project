@@ -29,6 +29,10 @@ builder.Services.AddControllers();
 
 // 4. Lấy connection string và đăng ký DbContext
 var connStr = builder.Configuration.GetConnectionString("Database");
+connStr = connStr?.Replace("${DB_HOST}", Environment.GetEnvironmentVariable("DB_HOST"))
+                 ?.Replace("${DB_NAME}", Environment.GetEnvironmentVariable("DB_NAME"))
+                 ?.Replace("${DB_USERNAME}", Environment.GetEnvironmentVariable("DB_USERNAME"))
+                 ?.Replace("${DB_PASSWORD}", Environment.GetEnvironmentVariable("DB_PASSWORD"));
 if (string.IsNullOrWhiteSpace(connStr))
 {
     throw new InvalidOperationException(
