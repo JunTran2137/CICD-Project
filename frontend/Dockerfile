@@ -1,32 +1,24 @@
-# Build stage
-FROM node:18-alpine as build
-
-# Set working directory
+# Stage 1: build React
+FROM node:18-alpine AS builder
 WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy source code
+COPY package.json ./
+RUN npm install --legacy-peer-deps
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Production stage
-FROM nginx:alpine
+# Stage 2: serve với Nginx
+FROM nginx:stable-alpine
+WORKDIR /app
 
-# Copy built assets from build stage
-COPY --from=build /app/dist /usr/share/nginx/html
+# Copy runtime templates + entrypoint
+COPY public/env-config.js.template /app/env-config.js.template
+COPY nginx/default.conf.template   /etc/nginx/conf.d/default.conf.template
+COPY nginx/default.conf.ingress    /etc/nginx/conf.d/default.conf.ingress
+COPY entrypoint.sh                 /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Copy nginx configuration (if you have custom config)
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy build output
+COPY --from=builder /app/dist      /usr/share/nginx/html
 
-# Expose port 80
 EXPOSE 80
-
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/entrypoint.sh"]
