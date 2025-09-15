@@ -49,7 +49,14 @@ builder.Services.AddDbContext<DataContext>(options =>
 
 var app = builder.Build();
 
-// 5. Pipeline
+// 5. Tự động tạo database và migration
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<DataContext>();
+    context.Database.EnsureCreated();
+}
+
+// 6. Pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
